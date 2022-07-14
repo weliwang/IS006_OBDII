@@ -157,6 +157,14 @@ void BJJA_LM_Sub1G_init()
     RF_cmdPropTx.pPkt = gPacket;
     RF_cmdPropTx.startTrigger.triggerType = TRIG_NOW;
     RF_cmdPropRadioDivSetup.txPower=0x04C0;//-20dbm
+
+
+
+    RF_cmdPropRx.endTrigger.triggerType = TRIG_REL_PREVEND;
+    RF_cmdPropRx.endTime = (uint32_t)(4000000*0.05f);//0.05=50ms
+    RF_cmdPropTx.pNextOp = (rfc_radioOp_t *)&RF_cmdPropRx;
+    /* Only run the RX command if TX is successful */
+    RF_cmdPropTx.condition.rule = COND_STOP_ON_FALSE;
     /************************add by weli tx*******************************/
 
     /* Request access to the radio */
@@ -269,7 +277,7 @@ uint8_t BJJA_LM_late_send_cmd(uint8_t freq)
     RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityHigh/*RF_PriorityNormal*/, NULL, 0);//
     BJJA_LM_entryTX();
     //DELAY_US(3000);
-    BJJA_LM_entryRX();
+    //BJJA_LM_entryRX();
     
     if(gAck_SubG)
     {
@@ -292,8 +300,12 @@ void BJJA_LM_entryTX()
     gPacket[7]=0x03;
     gPacket[8]=0x03;
     gPacket[9]=0x01;
-    RF_EventMask terminationReason = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTx,
-                                                   RF_PriorityHigh/*RF_PriorityNormal*/, NULL, 0);
+    //RF_EventMask terminationReason = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTx,
+    //                                               RF_PriorityHigh/*RF_PriorityNormal*/, NULL, 0);
+    RF_EventMask terminationReason =
+                RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTx, RF_PriorityHigh,
+                          &callback, (RF_EventCmdDone | RF_EventRxEntryDone |
+                          RF_EventLastCmdDone));
 #if 0
         switch(terminationReason)
         {
