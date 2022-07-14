@@ -81,6 +81,17 @@ Target Device: cc13x2_26x2
 #include "multi_role.h"
 
 /*********************************************************************
+ * Add by weli begin for include header file
+ */
+#include "bjja_lm_utility.h"
+
+
+/*********************************************************************
+ * Add by weli end
+ */
+
+
+/*********************************************************************
  * MACROS
  */
 
@@ -102,6 +113,7 @@ Target Device: cc13x2_26x2
 #define MR_EVT_PERIODIC            11
 #define MR_EVT_READ_RPA            12
 #define MR_EVT_INSUFFICIENT_MEM    13
+#define MR_EVT_SUBG_PERIODIC       14
 
 // Internal Events for RTOS application
 #define MR_ICALL_EVT                         ICALL_MSG_EVENT_ID // Event_Id_31
@@ -386,6 +398,23 @@ static void multi_role_pairStateCB(uint16_t connHandle, uint8_t state,
                                    uint8_t status);
 static void multi_role_updateRPA(void);
 
+
+/*********************************************************************
+ * Add by weli begin for function
+ */
+#define BJJA_LM_SUBG_EVT_PERIOD               5000
+void BJJA_LM_subg_early_init();
+static void BJJA_LM_subg_performPeriodicTask(void);
+static Clock_Struct BJJA_LM_subG_clkPeriodic;
+/*********************************************************************
+ * Add by weli end
+ */
+mrClockEventData_t periodicSubG =
+{
+  .event = MR_EVT_SUBG_PERIODIC
+};
+
+
 /*********************************************************************
  * EXTERN FUNCTIONS
 */
@@ -495,6 +524,9 @@ static void multi_role_init(void)
   Util_constructClock(&clkPeriodic, multi_role_clockHandler,
                       MR_PERIODIC_EVT_PERIOD, 0, false,
                       (UArg)&periodicUpdateData);
+  Util_constructClock(&BJJA_LM_subG_clkPeriodic, multi_role_clockHandler,
+                      BJJA_LM_SUBG_EVT_PERIOD, 0, false,
+                      (UArg)&periodicSubG);
 
   // Init key debouncer
   Board_initKeys(multi_role_keyChangeHandler);
@@ -599,6 +631,7 @@ static void multi_role_taskFxn(UArg a0, UArg a1)
 {
   // Initialize application
   multi_role_init();
+  BJJA_LM_subg_early_init();
 
   // Application main loop
   for (;;)
@@ -889,6 +922,7 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
       connList[connIndex].charHandle = 0;
 
       Util_startClock(&clkPeriodic);
+      
 
       pStrAddr = (uint8_t*) Util_convertBdAddr2Str(connList[connIndex].addr);
 
@@ -1547,6 +1581,11 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
       multi_role_performPeriodicTask();
       break;
     }
+    case MR_EVT_SUBG_PERIODIC:
+    {
+      BJJA_LM_subg_performPeriodicTask();
+      break;
+    }
 
     case MR_EVT_READ_RPA:
     {
@@ -1947,6 +1986,14 @@ static void multi_role_clockHandler(UArg arg)
 
     // Send message to perform periodic task
     multi_role_enqueueMsg(MR_EVT_PERIODIC, NULL);
+  }
+  else if (pData->event == MR_EVT_SUBG_PERIODIC)
+  {
+    // Start the next period
+    Util_startClock(&BJJA_LM_subG_clkPeriodic);
+
+    // Send message to perform periodic task
+    multi_role_enqueueMsg(MR_EVT_SUBG_PERIODIC, NULL);
   }
   else if (pData->event == MR_EVT_READ_RPA)
   {
@@ -3061,3 +3108,16 @@ static void multi_role_menuSwitchCb(tbmMenuObj_t* pMenuObjCurr,
 
 /*********************************************************************
 *********************************************************************/
+void BJJA_LM_subg_early_init()
+{
+  Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
+  BJJA_LM_Sub1G_init();
+  Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
+  Util_startClock(&BJJA_LM_subG_clkPeriodic);
+}
+static void BJJA_LM_subg_performPeriodicTask(void)
+{
+  Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
+  BJJA_LM_early_send_cmd();
+  Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
+}

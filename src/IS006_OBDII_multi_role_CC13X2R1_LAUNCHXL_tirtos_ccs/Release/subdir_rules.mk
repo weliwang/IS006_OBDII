@@ -8,7 +8,7 @@ SHELL = cmd.exe
 build-1885820593: ../multi_role.syscfg
 	@echo 'Building file: "$<"'
 	@echo 'Invoking: SysConfig'
-	"C:/ti/sysconfig_1.8.2/sysconfig_cli.bat" -s "C:/ti/simplelink_cc13x2_26x2_sdk_5_20_00_52/.metadata/product.json" -o "syscfg" --compiler ccs "$<"
+	"C:/ti/sysconfig_1.8.2/sysconfig_cli.bat" -s "C:/ti/simplelink_cc13x2_26x2_sdk_5_20_00_52/.metadata/product.json" --script "C:/Users/Weli/workspace_v10/IS006_OBDII_multi_role_CC13X2R1_LAUNCHXL_tirtos_ccs/multi_role.syscfg" -o "syscfg" --compiler ccs
 	@echo 'Finished building: "$<"'
 	@echo ' '
 
