@@ -55,6 +55,8 @@ Target Device: cc13x2_26x2
 #include <ti/sysbios/knl/Event.h>
 #include <ti/sysbios/knl/Queue.h>
 #include <ti/display/Display.h>
+#include <ti/sysbios/knl/Semaphore.h>//add by weli
+#include <ti/sysbios/BIOS.h>//add by weli
 
 #if !(defined __TI_COMPILER_VERSION__) && !(defined __GNUC__)
 #include <intrinsics.h>
@@ -405,7 +407,19 @@ static void multi_role_updateRPA(void);
 #define BJJA_LM_SUBG_EVT_PERIOD               5000
 void BJJA_LM_subg_early_init();
 static void BJJA_LM_subg_performPeriodicTask(void);
+void BJJA_LM_subg_semphore_init();
+void BJJA_LM_subg_createTask(void);
+static void BJJA_LM_subg_taskFxn(UArg a0, UArg a1);
 static Clock_Struct BJJA_LM_subG_clkPeriodic;
+Semaphore_Handle gSem;
+
+Task_Struct gSubgTask;
+#if defined __TI_COMPILER_VERSION__
+#pragma DATA_ALIGN(mrTaskStack, 8)
+#else
+#pragma data_alignment=8
+#endif
+uint8_t gSubgTaskStack[MR_TASK_STACK_SIZE];
 /*********************************************************************
  * Add by weli end
  */
@@ -616,6 +630,8 @@ static void multi_role_init(void)
   //Initialize GAP layer for Peripheral and Central role and register to receive GAP events
   GAP_DeviceInit(GAP_PROFILE_PERIPHERAL | GAP_PROFILE_CENTRAL, selfEntity,
                  addrMode, &pRandomAddress);
+
+
 }
 
 /*********************************************************************
@@ -3114,10 +3130,56 @@ void BJJA_LM_subg_early_init()
   BJJA_LM_Sub1G_init();
   Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
   Util_startClock(&BJJA_LM_subG_clkPeriodic);
+
+  
+
+  
+  
+}
+void BJJA_LM_subg_semphore_init()
+{
+  Semaphore_Params semParams;
+  Semaphore_Params_init(&semParams);
+  gSem = Semaphore_create(0, &semParams, NULL); /* Memory allocated in here */
+  if (gSem == NULL) /* Check if the handle is valid */
+  {
+    Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-Semaphore could not be created\n", __FUNCTION__);
+  }
+  //Semaphore_pend(gSem,BIOS_WAIT_FOREVER); //pending
+  //Semaphore_post(gSem);//unlock 
 }
 static void BJJA_LM_subg_performPeriodicTask(void)
 {
+#if 0
+  //GapAdv_disable(advHandle);
   Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
   BJJA_LM_early_send_cmd();
   Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
+#else
+  Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
+  Semaphore_post(gSem);//unlock 
+#endif
+}
+void BJJA_LM_subg_createTask(void)
+{
+  Task_Params taskParams;
+
+  // Configure task
+  Task_Params_init(&taskParams);
+  taskParams.stack = gSubgTaskStack;
+  taskParams.stackSize = MR_TASK_STACK_SIZE;
+  taskParams.priority = 15;//0low,
+
+  Task_construct(&gSubgTask, BJJA_LM_subg_taskFxn, &taskParams, NULL);
+}
+static void BJJA_LM_subg_taskFxn(UArg a0, UArg a1)
+{
+  BJJA_LM_subg_semphore_init();
+  for (;;)
+  {
+    Semaphore_pend(gSem,BIOS_WAIT_FOREVER); //pending
+    //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
+    BJJA_LM_early_send_cmd();
+    //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
+  }
 }

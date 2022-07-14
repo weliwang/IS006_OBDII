@@ -266,11 +266,11 @@ uint8_t BJJA_LM_late_send_cmd(uint8_t freq)
         RF_cmdFs.fractFreq = 0x429A;//868.26
     }
     /* Set the frequency */
-    RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
+    RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityHigh/*RF_PriorityNormal*/, NULL, 0);//
     BJJA_LM_entryTX();
     //DELAY_US(3000);
     BJJA_LM_entryRX();
-    DELAY_US(3000);
+    
     if(gAck_SubG)
     {
         gAck_SubG=0;
@@ -293,8 +293,8 @@ void BJJA_LM_entryTX()
     gPacket[8]=0x03;
     gPacket[9]=0x01;
     RF_EventMask terminationReason = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTx,
-                                                   RF_PriorityNormal, NULL, 0);
-
+                                                   RF_PriorityHigh/*RF_PriorityNormal*/, NULL, 0);
+#if 0
         switch(terminationReason)
         {
             case RF_EventLastCmdDone:
@@ -351,9 +351,9 @@ void BJJA_LM_entryTX()
         }
 
         //PIN_setOutputValue(ledPinHandle, CONFIG_PIN_0,!PIN_getOutputValue(CONFIG_PIN_0));
-
+#endif
         /* Power down the radio */
-        //RF_yield(rfHandle);
+        RF_yield(rfHandle);
 }
 void BJJA_LM_entryRX()
 {
@@ -361,12 +361,13 @@ void BJJA_LM_entryRX()
     //RF_cmdPropRx.endTrigger.triggerType = TRIG_ABSTIME;
     //RF_cmdPropRx.endTime= RF_getCurrentTime() + (4000*100);//weli 4000 is 1ms
     RF_cmdPropRx.endTrigger.triggerType = TRIG_REL_SUBMIT;
-    RF_cmdPropRx.endTime = (uint32_t)(4000000*0.5f);//100ms *0.1f=100ms
+    RF_cmdPropRx.endTime = (uint32_t)(4000000*0.2f);//100ms *0.1f=100ms
     /* Enter RX mode and stay forever in RX */
     RF_EventMask terminationReason = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,
-                                               RF_PriorityNormal, &callback,
+                                               RF_PriorityHighest/*RF_PriorityNormal*/, &callback,//todo priority normal change to high
                                                RF_EventRxEntryDone);
     RF_yield(rfHandle);
+#if 0
     switch(terminationReason)
     {
         case RF_EventLastCmdDone:
@@ -444,7 +445,7 @@ void BJJA_LM_entryRX()
             //while(1);
         
     }
-
+#endif
     /* Power down the radio */
     //RF_yield(rfHandle);
 }

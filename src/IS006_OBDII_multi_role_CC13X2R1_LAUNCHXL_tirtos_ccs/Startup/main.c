@@ -171,6 +171,7 @@ int main()
 
   /* Kick off application - Priority 1 */
   multi_role_createTask();
+  BJJA_LM_subg_createTask();
 
   /* enable interrupts and start SYS/BIOS */
   BIOS_start();
