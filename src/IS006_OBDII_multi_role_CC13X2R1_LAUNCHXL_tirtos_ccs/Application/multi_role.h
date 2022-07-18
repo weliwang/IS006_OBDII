@@ -79,6 +79,7 @@ extern "C"
  */
 extern void multi_role_createTask(void);
 extern void BJJA_LM_subg_createTask(void);///add by weli
+extern void Weli_UartChangeCB();//add by weli
 
 /* Action for Menu: Enable Scanning */
 bool multi_role_doDiscoverDevices(uint8_t index);

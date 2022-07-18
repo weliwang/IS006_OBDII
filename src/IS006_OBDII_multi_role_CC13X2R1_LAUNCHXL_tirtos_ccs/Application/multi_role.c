@@ -76,17 +76,17 @@ Target Device: cc13x2_26x2
 #include <ti_drivers_config.h>
 #include <board_key.h>
 
-#include <menu/two_btn_menu.h>
+//#include <menu/two_btn_menu.h>
 
 #include "ti_ble_config.h"
-#include "multi_role_menu.h"
+//#include "multi_role_menu.h"
 #include "multi_role.h"
 
 /*********************************************************************
  * Add by weli begin for include header file
  */
 #include "bjja_lm_utility.h"
-
+#include "bjja_lm_uart.h"
 
 /*********************************************************************
  * Add by weli end
@@ -141,17 +141,6 @@ typedef enum {
   BLE_DISC_STATE_CHAR                 // Characteristic discovery
 } discState_t;
 
-// Row numbers for two-button menu
-#define MR_ROW_SEPARATOR     (TBM_ROW_APP + 0)
-#define MR_ROW_CUR_CONN      (TBM_ROW_APP + 1)
-#define MR_ROW_ANY_CONN      (TBM_ROW_APP + 2)
-#define MR_ROW_NON_CONN      (TBM_ROW_APP + 3)
-#define MR_ROW_NUM_CONN      (TBM_ROW_APP + 4)
-#define MR_ROW_CHARSTAT      (TBM_ROW_APP + 5)
-#define MR_ROW_ADVERTIS      (TBM_ROW_APP + 6)
-#define MR_ROW_MYADDRSS      (TBM_ROW_APP + 7)
-#define MR_ROW_SECURITY      (TBM_ROW_APP + 8)
-#define MR_ROW_RPA           (TBM_ROW_APP + 9)
 
 // address string length is an ascii character for each digit +
 #define MR_ADDR_STR_SIZE     15
@@ -244,7 +233,7 @@ typedef struct
 */
 
 // Display Interface
-Display_Handle dispHandle = NULL;
+//Display_Handle dispHandle = NULL;
 
 /*********************************************************************
 * LOCAL VARIABLES
@@ -386,8 +375,6 @@ static bool multi_role_findSvcUuid(uint16_t uuid, uint8_t *pData,
                                       uint16_t dataLen);
 #endif // DEFAULT_DEV_DISC_BY_SVC_UUID
 static uint8_t multi_role_removeConnInfo(uint16_t connHandle);
-static void multi_role_menuSwitchCb(tbmMenuObj_t* pMenuObjCurr,
-                                       tbmMenuObj_t* pMenuObjNext);
 static void multi_role_startSvcDiscovery(void);
 #ifndef Display_DISABLE_ALL
 static char* multi_role_getConnAddrStr(uint16_t connHandle);
@@ -510,7 +497,7 @@ static void multi_role_init(void)
 {
   BLE_LOG_INT_TIME(0, BLE_LOG_MODULE_APP, "APP : ---- init ", MR_TASK_PRIORITY);
   // Create the menu
-  multi_role_build_menu();
+  //multi_role_build_menu();
   // ******************************************************************
   // N0 STACK API CALLS CAN OCCUR BEFORE THIS CALL TO ICall_registerApp
   // ******************************************************************
@@ -519,17 +506,19 @@ static void multi_role_init(void)
   ICall_registerApp(&selfEntity, &syncEvent);
 
   // Open Display.
-  dispHandle = Display_open(Display_Type_ANY, NULL);
+  //dispHandle = Display_open(Display_Type_ANY, NULL);//todo weli add hello world
+  Board_initUser();
+  UartMessage("Hello world",strlen("Hello world"));
 
   // Disable all items in the main menu
-  tbm_setItemStatus(&mrMenuMain, MR_ITEM_NONE, MR_ITEM_ALL);
+  //tbm_setItemStatus(&mrMenuMain, MR_ITEM_NONE, MR_ITEM_ALL);
 
   // Init two button menu
-  tbm_initTwoBtnMenu(dispHandle, &mrMenuMain, 5, multi_role_menuSwitchCb);
-  Display_printf(dispHandle, MR_ROW_SEPARATOR, 0, "====================");
+  //tbm_initTwoBtnMenu(dispHandle, &mrMenuMain, 5, multi_role_menuSwitchCb);
+  //Display_printf(dispHandle, MR_ROW_SEPARATOR, 0, "====================");
 
   //clear out connection menu
-  tbm_setItemStatus(&mrMenuConnect, MR_ITEM_NONE, MR_ITEM_ALL);
+  //tbm_setItemStatus(&mrMenuConnect, MR_ITEM_NONE, MR_ITEM_ALL);
 
   // Create an RTOS queue for message from profile to be sent to app.
   appMsgQueue = Util_constructQueue(&appMsg);
@@ -759,14 +748,14 @@ static uint8_t multi_role_processStackMsg(ICall_Hdr *pMsg)
                   if (pMyMsg->cmdStatus ==
                       HCI_ERROR_CODE_UNSUPPORTED_REMOTE_FEATURE)
                   {
-                    Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
-                            "PHY Change failure, peer does not support this");
+                    ///Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
+                    //        "PHY Change failure, peer does not support this");
                   }
                   else
                   {
-                    Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
-                                   "PHY Update Status: 0x%02x",
-                                   pMyMsg->cmdStatus);
+                    //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
+                    //               "PHY Update Status: 0x%02x",
+                                   //pMyMsg->cmdStatus);
                   }
                 }
                 break;
@@ -775,9 +764,9 @@ static uint8_t multi_role_processStackMsg(ICall_Hdr *pMsg)
 
               default:
                 {
-                  Display_printf(dispHandle, MR_ROW_NON_CONN, 0,
-                                 "Unknown Cmd Status: 0x%04x::0x%02x",
-                                 pMyMsg->cmdOpcode, pMyMsg->cmdStatus);
+                  //Display_printf(dispHandle, MR_ROW_NON_CONN, 0,
+                  //               "Unknown Cmd Status: 0x%04x::0x%02x",
+                  //               pMyMsg->cmdOpcode, pMyMsg->cmdStatus);
                 }
               break;
             }
@@ -795,20 +784,20 @@ static uint8_t multi_role_processStackMsg(ICall_Hdr *pMsg)
             if (pPUC->status != SUCCESS)
             {
 
-              Display_printf(dispHandle, MR_ROW_ANY_CONN, 0,
-                             "%s: PHY change failure",
-                             multi_role_getConnAddrStr(pPUC->connHandle));
+              //Display_printf(dispHandle, MR_ROW_ANY_CONN, 0,
+              //               "%s: PHY change failure",
+              //               multi_role_getConnAddrStr(pPUC->connHandle));
             }
             else
             {
-              Display_printf(dispHandle, MR_ROW_ANY_CONN, 0,
-                             "%s: PHY updated to %s",
-                             multi_role_getConnAddrStr(pPUC->connHandle),
+              //Display_printf(dispHandle, MR_ROW_ANY_CONN, 0,
+              //               "%s: PHY updated to %s",
+              //               multi_role_getConnAddrStr(pPUC->connHandle),
               // Only symmetrical PHY is supported.
               // rxPhy should be equal to txPhy.
-                             (pPUC->rxPhy == PHY_UPDATE_COMPLETE_EVENT_1M) ? "1 Mbps" :
-                             (pPUC->rxPhy == PHY_UPDATE_COMPLETE_EVENT_2M) ? "2 Mbps" :
-                             (pPUC->rxPhy == PHY_UPDATE_COMPLETE_EVENT_CODED) ? "Coded" : "Unexpected PHY Value");
+              //               (pPUC->rxPhy == PHY_UPDATE_COMPLETE_EVENT_1M) ? "1 Mbps" :
+              //               (pPUC->rxPhy == PHY_UPDATE_COMPLETE_EVENT_2M) ? "2 Mbps" :
+              //               (pPUC->rxPhy == PHY_UPDATE_COMPLETE_EVENT_CODED) ? "Coded" : "Unexpected PHY Value");
             }
           }
 
@@ -887,32 +876,32 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
 
       // Enable "Discover Devices", "Set Scanning PHY", and "Set Address Type"
       // in the main menu
-      tbm_setItemStatus(&mrMenuMain, MR_ITEM_STARTDISC | MR_ITEM_ADVERTISE | MR_ITEM_PHY, MR_ITEM_NONE);
+      //tbm_setItemStatus(&mrMenuMain, MR_ITEM_STARTDISC | MR_ITEM_ADVERTISE | MR_ITEM_PHY, MR_ITEM_NONE);
 
       //Display initialized state status
-      Display_printf(dispHandle, MR_ROW_NUM_CONN, 0, "Num Conns: %d", numConn);
-      Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Initialized");
-      Display_printf(dispHandle, MR_ROW_MYADDRSS, 0, "Multi-Role Address: %s",(char *)Util_convertBdAddr2Str(pPkt->devAddr));
+      //Display_printf(dispHandle, MR_ROW_NUM_CONN, 0, "Num Conns: %d", numConn);
+      //Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Initialized");
+      //Display_printf(dispHandle, MR_ROW_MYADDRSS, 0, "Multi-Role Address: %s",(char *)Util_convertBdAddr2Str(pPkt->devAddr));
 
       break;
     }
 
     case GAP_CONNECTING_CANCELLED_EVENT:
     {
-      uint16_t itemsToEnable = MR_ITEM_STARTDISC| MR_ITEM_ADVERTISE | MR_ITEM_PHY;
+      /*uint16_t itemsToEnable = MR_ITEM_STARTDISC| MR_ITEM_ADVERTISE | MR_ITEM_PHY;
 
       if (numConn > 0)
       {
         itemsToEnable |= MR_ITEM_SELECTCONN;
-      }
+      }*/
 
-      Display_printf(dispHandle, MR_ROW_NON_CONN, 0,
-                     "Conneting attempt cancelled");
+      //Display_printf(dispHandle, MR_ROW_NON_CONN, 0,
+      //               "Conneting attempt cancelled");
 
       // Enable "Discover Devices", "Connect To", and "Set Scanning PHY"
       // and disable everything else.
-      tbm_setItemStatus(&mrMenuMain,
-                        itemsToEnable, MR_ITEM_ALL & ~itemsToEnable);
+      //tbm_setItemStatus(&mrMenuMain,
+      //                  itemsToEnable, MR_ITEM_ALL & ~itemsToEnable);
 
       break;
     }
@@ -923,7 +912,7 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
       uint8_t role = ((gapEstLinkReqEvent_t*) pMsg)->connRole;
       uint8_t* pAddr      = ((gapEstLinkReqEvent_t*) pMsg)->devAddr;
       uint8_t  connIndex;
-      uint32_t itemsToDisable = MR_ITEM_STOPDISC | MR_ITEM_CANCELCONN;
+      uint32_t itemsToDisable =0;// MR_ITEM_STOPDISC | MR_ITEM_CANCELCONN;
       uint8_t* pStrAddr;
       uint8_t i;
       uint8_t numConnectable = 0;
@@ -942,20 +931,20 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
 
       pStrAddr = (uint8_t*) Util_convertBdAddr2Str(connList[connIndex].addr);
 
-      Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Connected to %s", pStrAddr);
-      Display_printf(dispHandle, MR_ROW_NUM_CONN, 0, "Num Conns: %d", numConn);
+      //Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Connected to %s", pStrAddr);
+      //Display_printf(dispHandle, MR_ROW_NUM_CONN, 0, "Num Conns: %d", numConn);
 
       // Disable "Connect To" until another discovery is performed
-      itemsToDisable |= MR_ITEM_CONNECT;
+      //itemsToDisable |= MR_ITEM_CONNECT;
 
       // If we already have maximum allowed number of connections,
       // disable device discovery and additional connection making.
-      if (numConn >= MAX_NUM_BLE_CONNS)
+      /*if (numConn >= MAX_NUM_BLE_CONNS)
       {
         itemsToDisable |= MR_ITEM_STARTDISC;
-      }
+      }*/
 
-      for (i = 0; i < TBM_GET_NUM_ITEM(&mrMenuConnect); i++)
+      /*for (i = 0; i < TBM_GET_NUM_ITEM(&mrMenuConnect); i++)
       {
         if (!memcmp(TBM_GET_ACTION_DESC(&mrMenuConnect, i), pStrAddr,
             MR_ADDR_STR_SIZE))
@@ -967,11 +956,11 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
         {
           numConnectable++;
         }
-      }
+      }*/
 
       // Enable/disable Main menu items properly
-      tbm_setItemStatus(&mrMenuMain,
-                        MR_ITEM_ALL & ~(itemsToDisable), itemsToDisable);
+      //tbm_setItemStatus(&mrMenuMain,
+      //                  MR_ITEM_ALL & ~(itemsToDisable), itemsToDisable);
 
       if (numConn < MAX_NUM_BLE_CONNS)
       {
@@ -991,7 +980,7 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
     {
       uint16_t connHandle = ((gapTerminateLinkEvent_t*) pMsg)->connectionHandle;
       uint8_t connIndex;
-      uint32_t itemsToEnable = MR_ITEM_STARTDISC | MR_ITEM_ADVERTISE | MR_ITEM_PHY;
+      //uint32_t itemsToEnable = MR_ITEM_STARTDISC | MR_ITEM_ADVERTISE | MR_ITEM_PHY;
       uint8_t* pStrAddr;
       uint8_t i;
       uint8_t numConnectable = 0;
@@ -1005,11 +994,11 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
 
       pStrAddr = (uint8_t*) Util_convertBdAddr2Str(connList[connIndex].addr);
 
-      Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "%s is disconnected",
+      /*Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "%s is disconnected",
                      pStrAddr);
-      Display_printf(dispHandle, MR_ROW_NUM_CONN, 0, "Num Conns: %d", numConn);
+      Display_printf(dispHandle, MR_ROW_NUM_CONN, 0, "Num Conns: %d", numConn);*/
 
-      for (i = 0; i < TBM_GET_NUM_ITEM(&mrMenuConnect); i++)
+      /*for (i = 0; i < TBM_GET_NUM_ITEM(&mrMenuConnect); i++)
       {
         if (!memcmp(TBM_GET_ACTION_DESC(&mrMenuConnect, i), pStrAddr,
                      MR_ADDR_STR_SIZE))
@@ -1022,7 +1011,7 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
         {
           numConnectable++;
         }
-      }
+      }*/
 
       // Start advertising since there is room for more connections
       GapAdv_enable(advHandle, GAP_ADV_ENABLE_OPTIONS_USE_MAX , 0);
@@ -1030,7 +1019,7 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
       if (numConn > 0)
       {
         // There still is an active connection to select
-        itemsToEnable |= MR_ITEM_SELECTCONN;
+        //itemsToEnable |= MR_ITEM_SELECTCONN;
       }
 
       // If no active connections
@@ -1038,20 +1027,20 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
       {
         // Stop periodic clock
         Util_stopClock(&clkPeriodic);
-        tbm_setItemStatus(&mrMenuMain, TBM_ITEM_NONE, TBM_ITEM_ALL);
-        tbm_setItemStatus(&mrMenuMain, MR_ITEM_NONE, MR_ITEM_ALL ^(MR_ITEM_STARTDISC | MR_ITEM_ADVERTISE | MR_ITEM_PHY));
+        //tbm_setItemStatus(&mrMenuMain, TBM_ITEM_NONE, TBM_ITEM_ALL);
+        //tbm_setItemStatus(&mrMenuMain, MR_ITEM_NONE, MR_ITEM_ALL ^(MR_ITEM_STARTDISC | MR_ITEM_ADVERTISE | MR_ITEM_PHY));
       }
 
       // Enable/disable items properly.
-      tbm_setItemStatus(&mrMenuMain,
-                        itemsToEnable, MR_ITEM_ALL & ~itemsToEnable);
+      //tbm_setItemStatus(&mrMenuMain,
+      //                  itemsToEnable, MR_ITEM_ALL & ~itemsToEnable);
 
       // If we are in the context which the teminated connection was associated
       // with, go to main menu.
-      if (connHandle == mrConnHandle)
+      /*if (connHandle == mrConnHandle)
       {
         tbm_goTo(&mrMenuMain);
-      }
+      }*/
 
       break;
     }
@@ -1096,17 +1085,17 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
 
           if(pPkt->status == SUCCESS)
           {
-            Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
+            /*Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
                           "Updated: %s, connTimeout:%d",
                            Util_convertBdAddr2Str(linkInfo.addr),
-                           linkInfo.connTimeout*CONN_TIMEOUT_MS_CONVERSION);
+                           linkInfo.connTimeout*CONN_TIMEOUT_MS_CONVERSION);*/
           }
           else
           {
             // Display the address of the connection update failure
-            Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
+            /*Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
                            "Update Failed 0x%h: %s", pPkt->opcode,
-                           Util_convertBdAddr2Str(linkInfo.addr));
+                           Util_convertBdAddr2Str(linkInfo.addr));*/
           }
         }
         // Check if there are any queued parameter updates
@@ -1132,9 +1121,9 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
        linkDB_GetInfo(pPkt->connectionHandle, &linkInfo);
 
        // Display the address of the connection update failure
-       Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
+       /*Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
                       "Peer Device's Update Request Rejected 0x%h: %s", pPkt->opcode,
-                      Util_convertBdAddr2Str(linkInfo.addr));
+                      Util_convertBdAddr2Str(linkInfo.addr));*/
 
        break;
      }
@@ -1238,7 +1227,7 @@ static void multi_role_advertInit(void)
   if(status != SUCCESS)
   {
     mrIsAdvertising = false;
-    Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Error: Failed to Start Advertising!");
+    //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Error: Failed to Start Advertising!");
   }
 
   if (addrMode > ADDRMODE_RANDOM)
@@ -1296,12 +1285,12 @@ static uint8_t multi_role_processGATTMsg(gattMsgEvent_t *pMsg)
     // The app is informed in case it wants to drop the connection.
 
     // Display the opcode of the message that caused the violation.
-    Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "FC Violated: %d", pMsg->msg.flowCtrlEvt.opcode);
+    //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "FC Violated: %d", pMsg->msg.flowCtrlEvt.opcode);
   }
   else if (pMsg->method == ATT_MTU_UPDATED_EVENT)
   {
     // MTU size updated
-    Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "MTU Size: %d", pMsg->msg.mtuEvt.MTU);
+    //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "MTU Size: %d", pMsg->msg.mtuEvt.MTU);
   }
 
 
@@ -1314,12 +1303,12 @@ static uint8_t multi_role_processGATTMsg(gattMsgEvent_t *pMsg)
     {
       if (pMsg->method == ATT_ERROR_RSP)
       {
-        Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Read Error %d", pMsg->msg.errorRsp.errCode);
+        //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Read Error %d", pMsg->msg.errorRsp.errCode);
       }
       else
       {
         // After a successful read, display the read value
-        Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Read rsp: %d", pMsg->msg.readRsp.pValue[0]);
+        //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Read rsp: %d", pMsg->msg.readRsp.pValue[0]);
       }
 
     }
@@ -1330,16 +1319,16 @@ static uint8_t multi_role_processGATTMsg(gattMsgEvent_t *pMsg)
 
       if (pMsg->method == ATT_ERROR_RSP)
       {
-        Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Write Error %d", pMsg->msg.errorRsp.errCode);
+        //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Write Error %d", pMsg->msg.errorRsp.errCode);
       }
       else
       {
         // After a succesful write, display the value that was written and
         // increment value
-        Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Write sent: %d", charVal);
+        //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Write sent: %d", charVal);
       }
 
-      tbm_goTo(&mrMenuPerConn);
+      //tbm_goTo(&mrMenuPerConn);
     }
     else if (connList[connIndex].discState != BLE_DISC_STATE_IDLE)
     {
@@ -1454,12 +1443,12 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
                                  pAdvRpt->pData, pAdvRpt->dataLen))
       {
         multi_role_addScanInfo(pAdvRpt->addr, pAdvRpt->addrType);
-        Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Discovered: %s",
-                       Util_convertBdAddr2Str(pAdvRpt->addr));
+        /*Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Discovered: %s",
+                       Util_convertBdAddr2Str(pAdvRpt->addr));*/
       }
 #else // !DEFAULT_DEV_DISC_BY_SVC_UUID
-      Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Discovered: %s",
-                     Util_convertBdAddr2Str(pAdvRpt->addr));
+      /*Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Discovered: %s",
+                     Util_convertBdAddr2Str(pAdvRpt->addr));*/
 #endif // DEFAULT_DEV_DISC_BY_SVC_UUID
 
       // Free scan payload data
@@ -1473,9 +1462,9 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
     case MR_EVT_SCAN_ENABLED:
     {
       // Disable everything but "Stop Discovering" on the menu
-      tbm_setItemStatus(&mrMenuMain, MR_ITEM_STOPDISC,
+      /*tbm_setItemStatus(&mrMenuMain, MR_ITEM_STOPDISC,
                        (MR_ITEM_ALL & ~MR_ITEM_STOPDISC));
-      Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Discovering...");
+      Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Discovering...");*/
 
       break;
     }
@@ -1486,7 +1475,7 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
       uint8_t i;
       static uint8_t* pAddrs = NULL;
       uint8_t* pAddrTemp;
-      uint16_t itemsToEnable = MR_ITEM_STARTDISC | MR_ITEM_ADVERTISE | MR_ITEM_PHY;
+      //uint16_t itemsToEnable = MR_ITEM_STARTDISC | MR_ITEM_ADVERTISE | MR_ITEM_PHY;
 #if (DEFAULT_DEV_DISC_BY_SVC_UUID == TRUE)
       numReport = numScanRes;
 #else // !DEFAULT_DEV_DISC_BY_SVC_UUID
@@ -1495,25 +1484,25 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
       numReport = ((GapScan_Evt_End_t*) (pMsg->pData))->numReport;
 #endif // DEFAULT_DEV_DISC_BY_SVC_UUID
 
-      Display_printf(dispHandle, MR_ROW_NON_CONN, 0,
-                     "%d devices discovered", numReport);
+      /*Display_printf(dispHandle, MR_ROW_NON_CONN, 0,
+                     "%d devices discovered", numReport);*/
 
       if (numReport > 0)
       {
         // Also enable "Connect to"
-        itemsToEnable |= MR_ITEM_CONNECT;
+        //itemsToEnable |= MR_ITEM_CONNECT;
       }
 
       if (numConn > 0)
       {
         // Also enable "Work with"
-        itemsToEnable |= MR_ITEM_SELECTCONN;
+       // itemsToEnable |= MR_ITEM_SELECTCONN;
       }
 
       // Enable "Discover Devices", "Set Scanning PHY", and possibly
       // "Connect to" and/or "Work with".
       // Disable "Stop Discovering".
-      tbm_setItemStatus(&mrMenuMain, itemsToEnable, MR_ITEM_STOPDISC);
+      //tbm_setItemStatus(&mrMenuMain, itemsToEnable, MR_ITEM_STOPDISC);
       if (pAddrs != NULL)
       {
         ICall_free(pAddrs);
@@ -1525,7 +1514,7 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
         numReport = 0;
       }
 
-      TBM_SET_NUM_ITEM(&mrMenuConnect, numReport);
+      //TBM_SET_NUM_ITEM(&mrMenuConnect, numReport);
 
       if (pAddrs != NULL)
       {
@@ -1546,15 +1535,15 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
   #endif // DEFAULT_DEV_DISC_BY_SVC_UUID
 
           // Assign the string to the corresponding action description of the menu
-          TBM_SET_ACTION_DESC(&mrMenuConnect, i, pAddrTemp);
-          tbm_setItemStatus(&mrMenuConnect, (1 << i) , TBM_ITEM_NONE);
+         // TBM_SET_ACTION_DESC(&mrMenuConnect, i, pAddrTemp);
+         // tbm_setItemStatus(&mrMenuConnect, (1 << i) , TBM_ITEM_NONE);
         }
 
         // Disable any non-active scan results
-        for(; i < DEFAULT_MAX_SCAN_RES; i++)
+        /*for(; i < DEFAULT_MAX_SCAN_RES; i++)
         {
           tbm_setItemStatus(&mrMenuConnect, TBM_ITEM_NONE, (1 << i));
-        }
+        }*/
       }
       break;
     }
@@ -1612,7 +1601,7 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
     case MR_EVT_INSUFFICIENT_MEM:
     {
       // We are running out of memory.
-      Display_printf(dispHandle, MR_ROW_ANY_CONN, 0, "Insufficient Memory");
+      //Display_printf(dispHandle, MR_ROW_ANY_CONN, 0, "Insufficient Memory");
 
       // We might be in the middle of scanning, try stopping it.
       GapScan_disable();
@@ -1644,24 +1633,24 @@ static void multi_role_processAdvEvent(mrGapAdvEventData_t *pEventData)
     case GAP_EVT_ADV_START_AFTER_ENABLE:
       BLE_LOG_INT_TIME(0, BLE_LOG_MODULE_APP, "APP : ---- GAP_EVT_ADV_START_AFTER_ENABLE", 0);
       mrIsAdvertising = true;
-      Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Adv Set %d Enabled",
-                     *(uint8_t *)(pEventData->pBuf));
+      //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Adv Set %d Enabled",
+      //               *(uint8_t *)(pEventData->pBuf));
       break;
 
     case GAP_EVT_ADV_END_AFTER_DISABLE:
       mrIsAdvertising = false;
-      Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Adv Set %d Disabled",
-                     *(uint8_t *)(pEventData->pBuf));
+      //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Adv Set %d Disabled",
+      //               *(uint8_t *)(pEventData->pBuf));
       break;
 
     case GAP_EVT_ADV_START:
-      Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Adv Started %d Enabled",
-                     *(uint8_t *)(pEventData->pBuf));
+      //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Adv Started %d Enabled",
+      //               *(uint8_t *)(pEventData->pBuf));
       break;
 
     case GAP_EVT_ADV_END:
-      Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Adv Ended %d Disabled",
-                     *(uint8_t *)(pEventData->pBuf));
+      //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Adv Ended %d Disabled",
+      ///               *(uint8_t *)(pEventData->pBuf));
       break;
 
     case GAP_EVT_ADV_SET_TERMINATED:
@@ -1670,8 +1659,8 @@ static void multi_role_processAdvEvent(mrGapAdvEventData_t *pEventData)
 #ifndef Display_DISABLE_ALL
       GapAdv_setTerm_t *advSetTerm = (GapAdv_setTerm_t *)(pEventData->pBuf);
 #endif
-      Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Adv Set %d disabled after conn %d",
-                     advSetTerm->handle, advSetTerm->connHandle );
+      //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "Adv Set %d disabled after conn %d",
+      //               advSetTerm->handle, advSetTerm->connHandle );
     }
     break;
 
@@ -1912,13 +1901,13 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
     case SIMPLEPROFILE_CHAR1:
       SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR1, &newValue);
 
-      Display_printf(dispHandle, MR_ROW_CHARSTAT, 0, "Char 1: %d", (uint16_t)newValue);
+      //Display_printf(dispHandle, MR_ROW_CHARSTAT, 0, "Char 1: %d", (uint16_t)newValue);
       break;
 
     case SIMPLEPROFILE_CHAR3:
       SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, &newValue);
 
-      Display_printf(dispHandle, MR_ROW_CHARSTAT, 0, "Char 3: %d", (uint16_t)newValue);
+      //Display_printf(dispHandle, MR_ROW_CHARSTAT, 0, "Char 3: %d", (uint16_t)newValue);
       break;
 
     default:
@@ -1976,8 +1965,8 @@ static void multi_role_updateRPA(void)
   if (memcmp(pRpaNew, rpa, B_ADDR_LEN))
   {
     // If the RPA has changed, update the display
-    Display_printf(dispHandle, MR_ROW_RPA, 0, "RP Addr: %s",
-                   Util_convertBdAddr2Str(pRpaNew));
+    //Display_printf(dispHandle, MR_ROW_RPA, 0, "RP Addr: %s",
+    //               Util_convertBdAddr2Str(pRpaNew));
     memcpy(rpa, pRpaNew, B_ADDR_LEN);
   }
 }
@@ -2066,7 +2055,7 @@ static void multi_role_handleKeys(uint8_t keys)
     // Check if the key is still pressed
     if (PIN_getInputValue(CONFIG_PIN_BTN1) == 0)
     {
-      tbm_buttonLeft();
+      //tbm_buttonLeft();
     }
   }
   else if (keys & KEY_RIGHT)
@@ -2075,7 +2064,7 @@ static void multi_role_handleKeys(uint8_t keys)
     rtnVal = PIN_getInputValue(CONFIG_PIN_BTN2);
     if (rtnVal == 0)
     {
-      tbm_buttonRight();
+      //tbm_buttonRight();
     }
   }
 }
@@ -2157,11 +2146,11 @@ static void multi_role_processGATTDiscEvent(gattMsgEvent_t *pMsg)
         = BUILD_UINT16(pMsg->msg.readByTypeRsp.pDataList[3],
                        pMsg->msg.readByTypeRsp.pDataList[4]);
 
-      Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Simple Svc Found");
+      //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Simple Svc Found");
 
       // Now we can use GATT Read/Write
-      tbm_setItemStatus(&mrMenuPerConn,
-                        MR_ITEM_GATTREAD | MR_ITEM_GATTWRITE, MR_ITEM_NONE);
+      //tbm_setItemStatus(&mrMenuPerConn,
+      //                  MR_ITEM_GATTREAD | MR_ITEM_GATTWRITE, MR_ITEM_NONE);
     }
 
     connList[connIndex].discState = BLE_DISC_STATE_IDLE;
@@ -2348,7 +2337,7 @@ static void multi_role_processPairState(mrPairStateData_t *pPairData)
   switch (state)
   {
     case GAPBOND_PAIRING_STATE_STARTED:
-      Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Pairing started");
+      //Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Pairing started");
       break;
 
     case GAPBOND_PAIRING_STATE_COMPLETE:
@@ -2356,7 +2345,7 @@ static void multi_role_processPairState(mrPairStateData_t *pPairData)
       {
         linkDBInfo_t linkInfo;
 
-        Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Pairing success");
+        //Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Pairing success");
 
         if (linkDB_GetInfo(pPairData->connHandle, &linkInfo) == SUCCESS)
         {
@@ -2367,8 +2356,8 @@ static void multi_role_processPairState(mrPairStateData_t *pPairData)
 
           {
             // Update the address of the peer to the ID address
-            Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Addr updated: %s",
-                           Util_convertBdAddr2Str(linkInfo.addr));
+            //Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Addr updated: %s",
+            //               Util_convertBdAddr2Str(linkInfo.addr));
 
             // Update the connection list with the ID address
             uint8_t i = multi_role_getConnIndex(pPairData->connHandle);
@@ -2380,29 +2369,29 @@ static void multi_role_processPairState(mrPairStateData_t *pPairData)
       }
       else
       {
-        Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Pairing fail: %d", status);
+        //Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Pairing fail: %d", status);
       }
       break;
 
     case GAPBOND_PAIRING_STATE_ENCRYPTED:
       if (status == SUCCESS)
       {
-        Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Encryption success");
+        //Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Encryption success");
       }
       else
       {
-        Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Encryption failed: %d", status);
+///        Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Encryption failed: %d", status);
       }
       break;
 
     case GAPBOND_PAIRING_STATE_BOND_SAVED:
       if (status == SUCCESS)
       {
-        Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Bond save success");
+        //Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Bond save success");
       }
       else
       {
-        Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Bond save failed: %d", status);
+       // Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Bond save failed: %d", status);
       }
 
       break;
@@ -2424,8 +2413,8 @@ static void multi_role_processPasscode(mrPasscodeData_t *pData)
   // Display passcode to user
   if (pData->uiOutputs != 0)
   {
-    Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Passcode: %d",
-                   B_APP_DEFAULT_PASSCODE);
+   // Display_printf(dispHandle, MR_ROW_SECURITY, 0, "Passcode: %d",
+   //                B_APP_DEFAULT_PASSCODE);
   }
 
   // Send passcode response
@@ -2623,8 +2612,8 @@ bool multi_role_doDiscoverDevices(uint8_t index)
   GapScan_enable(0, DEFAULT_SCAN_DURATION, DEFAULT_MAX_SCAN_RES);
 #endif // DEFAULT_DEV_DISC_BY_SVC_UUID
   // Enable only "Stop Discovering" and disable all others in the main menu
-  tbm_setItemStatus(&mrMenuMain, MR_ITEM_STOPDISC,
-                    (MR_ITEM_ALL & ~MR_ITEM_STOPDISC));
+  //tbm_setItemStatus(&mrMenuMain, MR_ITEM_STOPDISC,
+  //                  (MR_ITEM_ALL & ~MR_ITEM_STOPDISC));
 
   return (true);
 }
@@ -2695,12 +2684,12 @@ bool multi_role_doConnect(uint8_t index)
   GapAdv_enable(advHandle, GAP_ADV_ENABLE_OPTIONS_USE_MAX , 0);
 
   // Enable only "Cancel Connecting" and disable all others in the main menu
-  tbm_setItemStatus(&mrMenuMain, MR_ITEM_CANCELCONN,
-                    (MR_ITEM_ALL & ~MR_ITEM_CANCELCONN));
+  //tbm_setItemStatus(&mrMenuMain, MR_ITEM_CANCELCONN,
+  //                  (MR_ITEM_ALL & ~MR_ITEM_CANCELCONN));
 
-  Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Connecting...");
+  //Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Connecting...");
 
-  tbm_goTo(&mrMenuMain);
+  //tbm_goTo(&mrMenuMain);//
 
   return (true);
 }
@@ -2716,7 +2705,7 @@ bool multi_role_doConnect(uint8_t index)
  */
 bool multi_role_doSelectConn(uint8_t index)
 {
-  uint32_t itemsToDisable = MR_ITEM_NONE;
+  /*uint32_t itemsToDisable = MR_ITEM_NONE;
 
   // index cannot be equal to or greater than MAX_NUM_BLE_CONNS
   MULTIROLE_ASSERT(index < MAX_NUM_BLE_CONNS);
@@ -2729,18 +2718,18 @@ bool multi_role_doSelectConn(uint8_t index)
     multi_role_enqueueMsg(MR_EVT_SVC_DISC, NULL);
 
     // Diable GATT Read/Write until simple service is found
-    itemsToDisable = MR_ITEM_GATTREAD | MR_ITEM_GATTWRITE;
-  }
+    //itemsToDisable = MR_ITEM_GATTREAD | MR_ITEM_GATTWRITE;
+  }*/
 
   // Set the menu title and go to this connection's context
-  TBM_SET_TITLE(&mrMenuPerConn, TBM_GET_ACTION_DESC(&mrMenuSelectConn, index));
+ // TBM_SET_TITLE(&mrMenuPerConn, TBM_GET_ACTION_DESC(&mrMenuSelectConn, index));
 
-  tbm_setItemStatus(&mrMenuPerConn, MR_ITEM_NONE, itemsToDisable);
+  //tbm_setItemStatus(&mrMenuPerConn, MR_ITEM_NONE, itemsToDisable);
 
   // Clear non-connection-related message
-  Display_clearLine(dispHandle, MR_ROW_NON_CONN);
+  //Display_clearLine(dispHandle, MR_ROW_NON_CONN);
 
-  tbm_goTo(&mrMenuPerConn);
+  //tbm_goTo(&mrMenuPerConn);
 
   return (true);
 }
@@ -2844,15 +2833,15 @@ bool multi_role_doConnUpdate(uint8_t index)
 
     GAP_UpdateLinkParamReq(&params);
 
-    Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Param update Request:connTimeout =%d",
-                    params.connTimeout*CONN_TIMEOUT_MS_CONVERSION);
+    //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Param update Request:connTimeout =%d",
+    //                params.connTimeout*CONN_TIMEOUT_MS_CONVERSION);
   }
   else
   {
 
-    Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
-                   "update :%s, Unable to find link information",
-                   Util_convertBdAddr2Str(linkInfo.addr));
+    //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0,
+     //              "update :%s, Unable to find link information",
+   //                Util_convertBdAddr2Str(linkInfo.addr));
   }
 
   return (true);
@@ -2873,10 +2862,10 @@ bool multi_role_doConnPhy(uint8_t index)
   // for RX and TX. For more information, see the LE 2M PHY section in the User's Guide:
   // http://software-dl.ti.com/lprf/ble5stack-latest/
   // Note PHYs are already enabled by default in build_config.opt in stack project.
-  HCI_LE_SetPhyCmd(mrConnHandle, 0, MRMenu_connPhy[index].value, MRMenu_connPhy[index].value, 0);
+  //HCI_LE_SetPhyCmd(mrConnHandle, 0, MRMenu_connPhy[index].value, MRMenu_connPhy[index].value, 0);
 
-  Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Connection PHY preference: %s",
-                 TBM_GET_ACTION_DESC(&mrMenuConnPhy, index));
+  ///Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Connection PHY preference: %s",
+     //            TBM_GET_ACTION_DESC(&mrMenuConnPhy, index));
 
   return (true);
 }
@@ -2892,9 +2881,9 @@ bool multi_role_doConnPhy(uint8_t index)
  */
 bool multi_role_doSetInitPhy(uint8_t index)
 {
-  mrInitPhy = MRMenu_initPhy[index].value;
-  Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Initialize PHY preference: %s",
-                 TBM_GET_ACTION_DESC(&mrMenuInitPhy, index));
+  //mrInitPhy = MRMenu_initPhy[index].value;
+  //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Initialize PHY preference: %s",
+  //               TBM_GET_ACTION_DESC(&mrMenuInitPhy, index));
 
   return (true);
 }
@@ -2911,10 +2900,10 @@ bool multi_role_doSetInitPhy(uint8_t index)
 bool multi_role_doSetScanPhy(uint8_t index)
 {
   // Set scanning primary PHY
-  GapScan_setParam(SCAN_PARAM_PRIM_PHYS, &MRMenu_scanPhy[index].value);
+  //GapScan_setParam(SCAN_PARAM_PRIM_PHYS, &MRMenu_scanPhy[index].value);
 
-  Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Primary Scan PHY: %s",
-                 TBM_GET_ACTION_DESC(&mrMenuScanPhy, index));
+//  Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Primary Scan PHY: %s",
+ //                TBM_GET_ACTION_DESC(&mrMenuScanPhy, index));
 
   return (true);
 }
@@ -2933,7 +2922,7 @@ bool multi_role_doSetAdvPhy(uint8_t index)
   uint16_t props;
   GapAdv_primaryPHY_t phy;
   bool isAdvActive = mrIsAdvertising;
-  
+  /*
   switch (MRMenu_advPhy[index].value)
   {
     case MR_ADV_LEGACY_PHY_1_MBPS:
@@ -2965,9 +2954,9 @@ bool multi_role_doSetAdvPhy(uint8_t index)
     GapAdv_enable(advHandle, GAP_ADV_ENABLE_OPTIONS_USE_MAX , 0);
   }
   
-  Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Advertise PHY preference: %s",
-                 TBM_GET_ACTION_DESC(&mrMenuAdvPhy, index));
-
+ // Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Advertise PHY preference: %s",
+  //               TBM_GET_ACTION_DESC(&mrMenuAdvPhy, index));
+*/
   return (true);
 }
 
@@ -3019,116 +3008,22 @@ bool multi_role_doAdvertise(uint8_t index)
     }
     else
     {
-      Display_printf(dispHandle, MR_ROW_ADVERTIS, 0,
-                     "At Maximum Connection Limit, Cannot Enable Advertisment");
+   //   Display_printf(dispHandle, MR_ROW_ADVERTIS, 0,
+   //                  "At Maximum Connection Limit, Cannot Enable Advertisment");
     }
   }
 
   return (true);
 }
 
-/*********************************************************************
- * @fn      multi_role_menuSwitchCb
- *
- * @brief   Detect menu context switching
- *
- * @param   pMenuObjCurr - the current menu object
- * @param   pMenuObjNext - the menu object the context is about to switch to
- *
- * @return  none
- */
-static void multi_role_menuSwitchCb(tbmMenuObj_t* pMenuObjCurr,
-                                    tbmMenuObj_t* pMenuObjNext)
-{
-  // interested in only the events of
-  // entering mrMenuConnect, mrMenuSelectConn, and mrMenuMain for now
-  if (pMenuObjNext == &mrMenuConnect)
-  {
-    uint8_t i, j;
-    uint32_t itemsToDisable = MR_ITEM_NONE;
-
-    for (i = 0; i < TBM_GET_NUM_ITEM(&mrMenuConnect); i++)
-    {
-      for (j = 0; j < MAX_NUM_BLE_CONNS; j++)
-      {
-        if ((connList[j].connHandle != LINKDB_CONNHANDLE_INVALID) &&
-            !memcmp(TBM_GET_ACTION_DESC(&mrMenuConnect, i),
-                    Util_convertBdAddr2Str(connList[j].addr),
-                    MR_ADDR_STR_SIZE))
-        {
-          // Already connected. Add to the set to be disabled.
-          itemsToDisable |= (1 << i);
-        }
-      }
-    }
-
-    // Eventually only non-connected device addresses will be displayed.
-    tbm_setItemStatus(&mrMenuConnect,
-                      MR_ITEM_ALL & ~itemsToDisable, itemsToDisable);
-  }
-  else if (pMenuObjNext == &mrMenuSelectConn)
-  {
-    static uint8_t* pAddrs;
-    uint8_t* pAddrTemp;
-
-    if (pAddrs != NULL)
-    {
-      ICall_free(pAddrs);
-    }
-
-    // Allocate buffer to display addresses
-    pAddrs = ICall_malloc(numConn * MR_ADDR_STR_SIZE);
-
-    if (pAddrs == NULL)
-    {
-      TBM_SET_NUM_ITEM(&mrMenuSelectConn, 0);
-    }
-    else
-    {
-      uint8_t i;
-
-      TBM_SET_NUM_ITEM(&mrMenuSelectConn, MAX_NUM_BLE_CONNS);
-
-      pAddrTemp = pAddrs;
-
-      // Add active connection info to the menu object
-      for (i = 0; i < MAX_NUM_BLE_CONNS; i++)
-      {
-        if (connList[i].connHandle != LINKDB_CONNHANDLE_INVALID)
-        {
-          // This connection is active. Set the corresponding menu item with
-          // the address of this connection and enable the item.
-          memcpy(pAddrTemp, Util_convertBdAddr2Str(connList[i].addr),
-                 MR_ADDR_STR_SIZE);
-          TBM_SET_ACTION_DESC(&mrMenuSelectConn, i, pAddrTemp);
-          tbm_setItemStatus(&mrMenuSelectConn, (1 << i), MR_ITEM_NONE);
-          pAddrTemp += MR_ADDR_STR_SIZE;
-        }
-        else
-        {
-          // This connection is not active. Disable the corresponding menu item.
-          tbm_setItemStatus(&mrMenuSelectConn, MR_ITEM_NONE, (1 << i));
-        }
-      }
-    }
-  }
-  else if (pMenuObjNext == &mrMenuMain)
-  {
-    // Now we are not in a specific connection's context
-    mrConnHandle = LINKDB_CONNHANDLE_INVALID;
-
-    // Clear connection-related message
-    Display_clearLine(dispHandle, MR_ROW_CUR_CONN);
-  }
-}
 
 /*********************************************************************
 *********************************************************************/
 void BJJA_LM_subg_early_init()
 {
-  Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
+  //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
   BJJA_LM_Sub1G_init();
-  Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
+ // Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
   Util_startClock(&BJJA_LM_subG_clkPeriodic);
 
   
@@ -3143,7 +3038,7 @@ void BJJA_LM_subg_semphore_init()
   gSem = Semaphore_create(0, &semParams, NULL); /* Memory allocated in here */
   if (gSem == NULL) /* Check if the handle is valid */
   {
-    Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-Semaphore could not be created\n", __FUNCTION__);
+   // Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-Semaphore could not be created\n", __FUNCTION__);
   }
   //Semaphore_pend(gSem,BIOS_WAIT_FOREVER); //pending
   //Semaphore_post(gSem);//unlock 
@@ -3156,7 +3051,7 @@ static void BJJA_LM_subg_performPeriodicTask(void)
   BJJA_LM_early_send_cmd();
   Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
 #else
-  Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
+  //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
   Semaphore_post(gSem);//unlock 
 #endif
 }
@@ -3182,4 +3077,27 @@ static void BJJA_LM_subg_taskFxn(UArg a0, UArg a1)
     BJJA_LM_early_send_cmd();
     //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
   }
+}
+void Weli_UartChangeCB()
+{
+#if 0
+  //SimplePeripheral_enqueueMsg(SBP_UART_INCOMING_EVT, NULL);
+  if(gProduceFlag==0)
+  {
+    if(get_queue()==0)
+    {
+      SimplePeripheral_enqueueMsg(SBP_UART_INCOMING_EVT,NULL);
+    }
+  }
+#endif
+}
+void clear_uart()
+{
+#if 0
+  VOID memset(serialBuffer, 0, sizeof(serialBuffer));
+  //sprintf(serialBuffer,"");
+    gSerialLen=0x00;
+    gProduceFlag=0;
+  Weli_UartChangeCB();
+#endif
 }
