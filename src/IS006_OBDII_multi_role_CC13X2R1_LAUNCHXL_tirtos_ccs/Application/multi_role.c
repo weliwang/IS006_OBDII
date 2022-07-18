@@ -115,7 +115,8 @@ Target Device: cc13x2_26x2
 #define MR_EVT_PERIODIC            11
 #define MR_EVT_READ_RPA            12
 #define MR_EVT_INSUFFICIENT_MEM    13
-#define MR_EVT_SUBG_PERIODIC       14
+#define MR_EVT_SUBG_PERIODIC       14//add by weli
+#define SBP_UART_INCOMING_EVT      15//add by weli
 
 // Internal Events for RTOS application
 #define MR_ICALL_EVT                         ICALL_MSG_EVENT_ID // Event_Id_31
@@ -397,8 +398,10 @@ static void BJJA_LM_subg_performPeriodicTask(void);
 void BJJA_LM_subg_semphore_init();
 void BJJA_LM_subg_createTask(void);
 static void BJJA_LM_subg_taskFxn(UArg a0, UArg a1);
+void BJJA_parsing_AT_cmd_send_data();
 static Clock_Struct BJJA_LM_subG_clkPeriodic;
 Semaphore_Handle gSem;
+uint8_t gProduceFlag=0x00;
 
 Task_Struct gSubgTask;
 #if defined __TI_COMPILER_VERSION__
@@ -1590,6 +1593,12 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
     {
       BJJA_LM_subg_performPeriodicTask();
       break;
+    }
+    case SBP_UART_INCOMING_EVT:          //add by weli
+    {
+        //UartMessage(serialBuffer, gSerialLen);
+        BJJA_parsing_AT_cmd_send_data();
+        break;
     }
 
     case MR_EVT_READ_RPA:
@@ -3080,24 +3089,35 @@ static void BJJA_LM_subg_taskFxn(UArg a0, UArg a1)
 }
 void Weli_UartChangeCB()
 {
-#if 0
   //SimplePeripheral_enqueueMsg(SBP_UART_INCOMING_EVT, NULL);
   if(gProduceFlag==0)
   {
     if(get_queue()==0)
     {
-      SimplePeripheral_enqueueMsg(SBP_UART_INCOMING_EVT,NULL);
+      multi_role_enqueueMsg(SBP_UART_INCOMING_EVT,NULL);
     }
   }
-#endif
 }
 void clear_uart()
 {
-#if 0
+#if 1
   VOID memset(serialBuffer, 0, sizeof(serialBuffer));
   //sprintf(serialBuffer,"");
     gSerialLen=0x00;
     gProduceFlag=0;
   Weli_UartChangeCB();
 #endif
+}
+void BJJA_parsing_AT_cmd_send_data()
+{
+  gProduceFlag=1;
+  //if(gEnableLog)
+    UartMessage(serialBuffer,gSerialLen);
+  /*if(strncmp(serialBuffer,"AT+SKEY=?",strlen("AT+SKEY=?"))==0)
+  {
+    uint8_t data[24]={0x00};
+    sprintf(data,"OK+SKEY=%d\r\n",gPasskey);
+    UartMessage(data,strlen(data));
+  }*/
+  clear_uart();
 }
