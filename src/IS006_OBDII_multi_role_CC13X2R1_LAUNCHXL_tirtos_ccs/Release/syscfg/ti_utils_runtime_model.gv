@@ -106,8 +106,12 @@ digraph Model
     // mod.$name=/ti/drivers/UART
     CONFIG_DISPLAY_UART -> ti_drivers_Power
     CONFIG_DISPLAY_UART -> ti_drivers_Board
+    CONFIG_UART_0 -> ti_drivers_Power
+    CONFIG_UART_0 -> ti_drivers_Board
     CONFIG_DISPLAY_UART -> CONFIG_PIN_UART_TX
     CONFIG_DISPLAY_UART -> CONFIG_PIN_UART_RX
+    CONFIG_UART_0 -> CONFIG_PIN_2
+    CONFIG_UART_0 -> CONFIG_PIN_3
 
     // mod.$name=/ti/drivers/nvs/NVSCC26XX
 }

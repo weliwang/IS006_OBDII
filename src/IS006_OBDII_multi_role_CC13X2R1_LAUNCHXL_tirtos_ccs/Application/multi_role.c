@@ -87,6 +87,7 @@ Target Device: cc13x2_26x2
  */
 #include "bjja_lm_utility.h"
 #include "bjja_lm_uart.h"
+#include "bjja_lm_uart2.h"
 
 /*********************************************************************
  * Add by weli end
@@ -117,6 +118,7 @@ Target Device: cc13x2_26x2
 #define MR_EVT_INSUFFICIENT_MEM    13
 #define MR_EVT_SUBG_PERIODIC       14//add by weli
 #define SBP_UART_INCOMING_EVT      15//add by weli
+#define SBP_UART2_INCOMING_EVT      16//add by weli
 
 // Internal Events for RTOS application
 #define MR_ICALL_EVT                         ICALL_MSG_EVENT_ID // Event_Id_31
@@ -399,9 +401,11 @@ void BJJA_LM_subg_semphore_init();
 void BJJA_LM_subg_createTask(void);
 static void BJJA_LM_subg_taskFxn(UArg a0, UArg a1);
 void BJJA_parsing_AT_cmd_send_data();
+void BJJA_parsing_AT_cmd_send_data_UART2();
 static Clock_Struct BJJA_LM_subG_clkPeriodic;
 Semaphore_Handle gSem;
 uint8_t gProduceFlag=0x00;
+uint8_t gProduceFlag2=0x00;
 
 Task_Struct gSubgTask;
 #if defined __TI_COMPILER_VERSION__
@@ -512,6 +516,9 @@ static void multi_role_init(void)
   //dispHandle = Display_open(Display_Type_ANY, NULL);//todo weli add hello world
   Board_initUser();
   UartMessage("Hello world",strlen("Hello world"));
+
+  Board_initUser2();
+  UartMessage2("THIS IS UART2 Hello world",strlen("THIS IS UART2 Hello world"));
 
   // Disable all items in the main menu
   //tbm_setItemStatus(&mrMenuMain, MR_ITEM_NONE, MR_ITEM_ALL);
@@ -1598,6 +1605,12 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
     {
         //UartMessage(serialBuffer, gSerialLen);
         BJJA_parsing_AT_cmd_send_data();
+        break;
+    }
+    case SBP_UART2_INCOMING_EVT:          //add by weli
+    {
+        //UartMessage(serialBuffer, gSerialLen);
+        BJJA_parsing_AT_cmd_send_data_UART2();
         break;
     }
 
@@ -3121,3 +3134,39 @@ void BJJA_parsing_AT_cmd_send_data()
   }*/
   clear_uart();
 }
+/*************************THIS IS FOR UART2 BEGIN***********************/
+void Weli_UartChangeCB2()
+{
+  //SimplePeripheral_enqueueMsg(SBP_UART_INCOMING_EVT, NULL);
+  if(gProduceFlag2==0)
+  {
+    if(get_queue2()==0)
+    {
+      multi_role_enqueueMsg(SBP_UART2_INCOMING_EVT,NULL);
+    }
+  }
+}
+void clear_uart2()
+{
+#if 1
+  VOID memset(serialBuffer2, 0, sizeof(serialBuffer2));
+  //sprintf(serialBuffer,"");
+    gSerialLen2=0x00;
+    gProduceFlag2=0;
+  Weli_UartChangeCB2();
+#endif
+}
+void BJJA_parsing_AT_cmd_send_data_UART2()
+{
+  gProduceFlag2=1;
+  //if(gEnableLog)
+    UartMessage2(serialBuffer2,gSerialLen2);
+  /*if(strncmp(serialBuffer,"AT+SKEY=?",strlen("AT+SKEY=?"))==0)
+  {
+    uint8_t data[24]={0x00};
+    sprintf(data,"OK+SKEY=%d\r\n",gPasskey);
+    UartMessage(data,strlen(data));
+  }*/
+  clear_uart2();
+}
+/************************* THIS IS FOR UART2 END ***********************/

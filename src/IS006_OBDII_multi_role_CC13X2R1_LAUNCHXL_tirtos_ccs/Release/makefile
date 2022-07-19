@@ -17,6 +17,7 @@ ORDERED_OBJS += \
 "./Application/RFQueue.obj" \
 "./Application/bjja_lm_subg_radio_config.obj" \
 "./Application/bjja_lm_uart.obj" \
+"./Application/bjja_lm_uart2.obj" \
 "./Application/board_key.obj" \
 "./Application/multi_role.obj" \
 "./Application/rfPacketRx.obj" \
@@ -195,8 +196,8 @@ IS006_OBDII_multi_role_CC13X2R1_LAUNCHXL_tirtos_ccs.hex: $(EXE_OUTPUTS)
 # Other Targets
 clean:
 	-$(RM) $(GEN_MISC_FILES__QUOTED)$(BIN_OUTPUTS__QUOTED)$(GEN_FILES__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "syscfg\ti_ble_config.obj" "syscfg\ti_devices_config.obj" "syscfg\ti_radio_config.obj" "syscfg\ti_drivers_config.obj" "Application\RFQueue.obj" "Application\bjja_lm_subg_radio_config.obj" "Application\bjja_lm_uart.obj" "Application\board_key.obj" "Application\multi_role.obj" "Application\rfPacketRx.obj" "Application\util.obj" "Drivers\NV\crc.obj" "Drivers\NV\nvocmp.obj" "Profiles\devinfoservice.obj" "Profiles\gatt_uuid.obj" "Profiles\gattservapp_util.obj" "Profiles\simple_gatt_profile.obj" "Startup\ble_user_config_stack.obj" "Startup\main.obj" "Startup\osal_icall_ble.obj" "Startup\rom_init.obj" "iCall\icall.obj" "iCall\icall_cc2650.obj" "iCall\icall_user_config.obj" "iCallBLE\ble_user_config.obj" "iCallBLE\icall_api_lite.obj" 
-	-$(RM) "syscfg\ti_ble_config.d" "syscfg\ti_devices_config.d" "syscfg\ti_radio_config.d" "syscfg\ti_drivers_config.d" "Application\RFQueue.d" "Application\bjja_lm_subg_radio_config.d" "Application\bjja_lm_uart.d" "Application\board_key.d" "Application\multi_role.d" "Application\rfPacketRx.d" "Application\util.d" "Drivers\NV\crc.d" "Drivers\NV\nvocmp.d" "Profiles\devinfoservice.d" "Profiles\gatt_uuid.d" "Profiles\gattservapp_util.d" "Profiles\simple_gatt_profile.d" "Startup\ble_user_config_stack.d" "Startup\main.d" "Startup\osal_icall_ble.d" "Startup\rom_init.d" "iCall\icall.d" "iCall\icall_cc2650.d" "iCall\icall_user_config.d" "iCallBLE\ble_user_config.d" "iCallBLE\icall_api_lite.d" 
+	-$(RM) "syscfg\ti_ble_config.obj" "syscfg\ti_devices_config.obj" "syscfg\ti_radio_config.obj" "syscfg\ti_drivers_config.obj" "Application\RFQueue.obj" "Application\bjja_lm_subg_radio_config.obj" "Application\bjja_lm_uart.obj" "Application\bjja_lm_uart2.obj" "Application\board_key.obj" "Application\multi_role.obj" "Application\rfPacketRx.obj" "Application\util.obj" "Drivers\NV\crc.obj" "Drivers\NV\nvocmp.obj" "Profiles\devinfoservice.obj" "Profiles\gatt_uuid.obj" "Profiles\gattservapp_util.obj" "Profiles\simple_gatt_profile.obj" "Startup\ble_user_config_stack.obj" "Startup\main.obj" "Startup\osal_icall_ble.obj" "Startup\rom_init.obj" "iCall\icall.obj" "iCall\icall_cc2650.obj" "iCall\icall_user_config.obj" "iCallBLE\ble_user_config.obj" "iCallBLE\icall_api_lite.obj" 
+	-$(RM) "syscfg\ti_ble_config.d" "syscfg\ti_devices_config.d" "syscfg\ti_radio_config.d" "syscfg\ti_drivers_config.d" "Application\RFQueue.d" "Application\bjja_lm_subg_radio_config.d" "Application\bjja_lm_uart.d" "Application\bjja_lm_uart2.d" "Application\board_key.d" "Application\multi_role.d" "Application\rfPacketRx.d" "Application\util.d" "Drivers\NV\crc.d" "Drivers\NV\nvocmp.d" "Profiles\devinfoservice.d" "Profiles\gatt_uuid.d" "Profiles\gattservapp_util.d" "Profiles\simple_gatt_profile.d" "Startup\ble_user_config_stack.d" "Startup\main.d" "Startup\osal_icall_ble.d" "Startup\rom_init.d" "iCall\icall.d" "iCall\icall_cc2650.d" "iCall\icall_user_config.d" "iCallBLE\ble_user_config.d" "iCallBLE\icall_api_lite.d" 
 	-$(RMDIR) $(GEN_MISC_DIRS__QUOTED)
 	-@echo 'Finished clean'
 	-@echo ' '

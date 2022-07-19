@@ -2,7 +2,7 @@
  *  ======== ti_drivers_config.c ========
  *  Configured TI-Drivers module definitions
  *
- *  DO NOT EDIT - This file is generated for the CC1352R1_LAUNCHXL
+ *  DO NOT EDIT - This file is generated for the CC1352R1F3RGZ
  *  by the SysConfig tool.
  */
 
@@ -41,7 +41,6 @@ const DisplayUart_HWAttrs displayUartHWAttrs = {
 
 const Display_Config Display_config[CONFIG_Display_COUNT] = {
     /* CONFIG_Display_0 */
-    /* XDS110 UART */
     {
         .fxnTablePtr = &DisplayUartAnsi_fxnTable,
         .object      = &displayUartObject,
@@ -245,9 +244,9 @@ const uint_least8_t ECDH_count = CONFIG_ECDH_COUNT;
  *  Array of Pin configurations
  */
 GPIO_PinConfig gpioPinConfigs[] = {
-    /* CONFIG_GPIO_BTN1 : LaunchPad Button BTN-1 (Left) */
+    /* CONFIG_GPIO_BTN1 */
     GPIOCC26XX_DIO_15 | GPIO_DO_NOT_CONFIG,
-    /* CONFIG_GPIO_BTN2 : LaunchPad Button BTN-2 (Right) */
+    /* CONFIG_GPIO_BTN2 */
     GPIOCC26XX_DIO_14 | GPIO_DO_NOT_CONFIG,
 };
 
@@ -260,9 +259,9 @@ GPIO_PinConfig gpioPinConfigs[] = {
  *  (GPIO.optimizeCallbackTableSize = true)
  */
 GPIO_CallbackFxn gpioCallbackFunctions[] = {
-    /* CONFIG_GPIO_BTN1 : LaunchPad Button BTN-1 (Left) */
+    /* CONFIG_GPIO_BTN1 */
     NULL,
-    /* CONFIG_GPIO_BTN2 : LaunchPad Button BTN-2 (Right) */
+    /* CONFIG_GPIO_BTN2 */
     NULL,
 };
 
@@ -348,17 +347,21 @@ const uint_least8_t NVS_count = CONFIG_NVS_COUNT;
 #include <ti/drivers/PIN.h>
 #include <ti/drivers/pin/PINCC26XX.h>
 
-#define CONFIG_PIN_COUNT 4
+#define CONFIG_PIN_COUNT 6
 
 const PIN_Config BoardGpioInitTable[CONFIG_PIN_COUNT + 1] = {
-    /* XDS110 UART, Parent Signal: CONFIG_DISPLAY_UART TX, (DIO13) */
+    /* Parent Signal: CONFIG_DISPLAY_UART TX, (DIO13) */
     CONFIG_PIN_UART_TX | PIN_GPIO_OUTPUT_EN | PIN_GPIO_HIGH | PIN_PUSHPULL | PIN_DRVSTR_MED,
-    /* XDS110 UART, Parent Signal: CONFIG_DISPLAY_UART RX, (DIO12) */
+    /* Parent Signal: CONFIG_DISPLAY_UART RX, (DIO12) */
     CONFIG_PIN_UART_RX | PIN_INPUT_EN | PIN_PULLDOWN | PIN_IRQ_DIS,
-    /* LaunchPad Button BTN-1 (Left), Parent Signal: CONFIG_GPIO_BTN1 GPIO Pin, (DIO15) */
+    /* Parent Signal: CONFIG_GPIO_BTN1 GPIO Pin, (DIO15) */
     CONFIG_PIN_BTN1 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_DIS,
-    /* LaunchPad Button BTN-2 (Right), Parent Signal: CONFIG_GPIO_BTN2 GPIO Pin, (DIO14) */
+    /* Parent Signal: CONFIG_GPIO_BTN2 GPIO Pin, (DIO14) */
     CONFIG_PIN_BTN2 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_DIS,
+    /* Parent Signal: CONFIG_UART_0 TX, (DIO11) */
+    CONFIG_PIN_2 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
+    /* Parent Signal: CONFIG_UART_0 RX, (DIO16) */
+    CONFIG_PIN_3 | PIN_INPUT_EN | PIN_PULLDOWN | PIN_IRQ_DIS,
 
     PIN_TERMINATE
 };
@@ -449,11 +452,12 @@ const uint_least8_t TRNG_count = CONFIG_TRNG_COUNT;
 #include <ti/devices/cc13x2_cc26x2/inc/hw_memmap.h>
 #include <ti/devices/cc13x2_cc26x2/inc/hw_ints.h>
 
-#define CONFIG_UART_COUNT 1
+#define CONFIG_UART_COUNT 2
 
 UARTCC26XX_Object uartCC26XXObjects[CONFIG_UART_COUNT];
 
 static unsigned char uartCC26XXRingBuffer0[32];
+static unsigned char uartCC26XXRingBuffer1[32];
 
 static const UARTCC26XX_HWAttrsV2 uartCC26XXHWAttrs[CONFIG_UART_COUNT] = {
   {
@@ -472,6 +476,22 @@ static const UARTCC26XX_HWAttrsV2 uartCC26XXHWAttrs[CONFIG_UART_COUNT] = {
     .rxIntFifoThr       = UARTCC26XX_FIFO_THRESHOLD_4_8,
     .errorFxn           = NULL
   },
+  {
+    .baseAddr           = UART0_BASE,
+    .intNum             = INT_UART0_COMB,
+    .intPriority        = (~0),
+    .swiPriority        = 0,
+    .powerMngrId        = PowerCC26XX_PERIPH_UART0,
+    .ringBufPtr         = uartCC26XXRingBuffer1,
+    .ringBufSize        = sizeof(uartCC26XXRingBuffer1),
+    .rxPin              = IOID_16,
+    .txPin              = IOID_11,
+    .ctsPin             = PIN_UNASSIGNED,
+    .rtsPin             = PIN_UNASSIGNED,
+    .txIntFifoThr       = UARTCC26XX_FIFO_THRESHOLD_1_8,
+    .rxIntFifoThr       = UARTCC26XX_FIFO_THRESHOLD_4_8,
+    .errorFxn           = NULL
+  },
 };
 
 const UART_Config UART_config[CONFIG_UART_COUNT] = {
@@ -480,9 +500,15 @@ const UART_Config UART_config[CONFIG_UART_COUNT] = {
         .object      = &uartCC26XXObjects[CONFIG_DISPLAY_UART],
         .hwAttrs     = &uartCC26XXHWAttrs[CONFIG_DISPLAY_UART]
     },
+    {   /* CONFIG_UART_0 */
+        .fxnTablePtr = &UARTCC26XX_fxnTable,
+        .object      = &uartCC26XXObjects[CONFIG_UART_0],
+        .hwAttrs     = &uartCC26XXHWAttrs[CONFIG_UART_0]
+    },
 };
 
 const uint_least8_t CONFIG_DISPLAY_UART_CONST = CONFIG_DISPLAY_UART;
+const uint_least8_t CONFIG_UART_0_CONST = CONFIG_UART_0;
 const uint_least8_t UART_count = CONFIG_UART_COUNT;
 
 #include <stdbool.h>

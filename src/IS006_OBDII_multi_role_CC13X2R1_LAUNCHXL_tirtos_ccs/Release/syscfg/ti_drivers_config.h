@@ -10,7 +10,7 @@
  *  Library source code must extern the correct symbol--which is resolved
  *  when the application is linked.
  *
- *  DO NOT EDIT - This file is generated for the CC1352R1_LAUNCHXL
+ *  DO NOT EDIT - This file is generated for the CC1352R1F3RGZ
  *  by the SysConfig tool.
  */
 #ifndef ti_drivers_config_h
@@ -18,7 +18,7 @@
 
 #define CONFIG_SYSCONFIG_PREVIEW
 
-#define CONFIG_CC1352R1_LAUNCHXL
+#define CONFIG_CC1352R1F3RGZ
 #ifndef DeviceFamily_CC13X2
 #define DeviceFamily_CC13X2
 #endif
@@ -87,10 +87,10 @@ extern const uint_least8_t              CONFIG_ECDH0_CONST;
  *  ======== GPIO ========
  */
 
-/* DIO15, LaunchPad Button BTN-1 (Left) */
+/* DIO15 */
 extern const uint_least8_t              CONFIG_GPIO_BTN1_CONST;
 #define CONFIG_GPIO_BTN1                0
-/* DIO14, LaunchPad Button BTN-2 (Right) */
+/* DIO14 */
 extern const uint_least8_t              CONFIG_GPIO_BTN2_CONST;
 #define CONFIG_GPIO_BTN2                1
 #define CONFIG_TI_DRIVERS_GPIO_COUNT    2
@@ -119,15 +119,19 @@ extern const uint_least8_t              CONFIG_NVSINTERNAL_CONST;
 
 extern const PIN_Config BoardGpioInitTable[];
 
-/* XDS110 UART, Parent Signal: CONFIG_DISPLAY_UART TX, (DIO13) */
+/* Parent Signal: CONFIG_DISPLAY_UART TX, (DIO13) */
 #define CONFIG_PIN_UART_TX                   0x0000000d
-/* XDS110 UART, Parent Signal: CONFIG_DISPLAY_UART RX, (DIO12) */
+/* Parent Signal: CONFIG_DISPLAY_UART RX, (DIO12) */
 #define CONFIG_PIN_UART_RX                   0x0000000c
-/* LaunchPad Button BTN-1 (Left), Parent Signal: CONFIG_GPIO_BTN1 GPIO Pin, (DIO15) */
+/* Parent Signal: CONFIG_GPIO_BTN1 GPIO Pin, (DIO15) */
 #define CONFIG_PIN_BTN1                   0x0000000f
-/* LaunchPad Button BTN-2 (Right), Parent Signal: CONFIG_GPIO_BTN2 GPIO Pin, (DIO14) */
+/* Parent Signal: CONFIG_GPIO_BTN2 GPIO Pin, (DIO14) */
 #define CONFIG_PIN_BTN2                   0x0000000e
-#define CONFIG_TI_DRIVERS_PIN_COUNT    4
+/* Parent Signal: CONFIG_UART_0 TX, (DIO11) */
+#define CONFIG_PIN_2                   0x0000000b
+/* Parent Signal: CONFIG_UART_0 RX, (DIO16) */
+#define CONFIG_PIN_3                   0x00000010
+#define CONFIG_TI_DRIVERS_PIN_COUNT    6
 
 
 
@@ -148,11 +152,16 @@ extern const uint_least8_t              CONFIG_TRNG_0_CONST;
 /*
  *  TX: DIO13
  *  RX: DIO12
- *  XDS110 UART
  */
 extern const uint_least8_t              CONFIG_DISPLAY_UART_CONST;
 #define CONFIG_DISPLAY_UART             0
-#define CONFIG_TI_DRIVERS_UART_COUNT    1
+/*
+ *  TX: DIO11
+ *  RX: DIO16
+ */
+extern const uint_least8_t              CONFIG_UART_0_CONST;
+#define CONFIG_UART_0                   1
+#define CONFIG_TI_DRIVERS_UART_COUNT    2
 
 
 /*
