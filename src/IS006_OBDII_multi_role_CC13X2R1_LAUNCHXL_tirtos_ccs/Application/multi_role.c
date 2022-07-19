@@ -229,6 +229,7 @@ typedef struct
   uint8_t               addr[B_ADDR_LEN];     // Peer Device Address
   Clock_Struct*         pUpdateClock;         // pointer to clock struct
   uint8_t               discState;            // Per connection deiscovery state
+  uint16_t gNotify_charHdl;
 } mrConnRec_t;
 
 /*********************************************************************
@@ -394,7 +395,8 @@ static void multi_role_updateRPA(void);
 /*********************************************************************
  * Add by weli begin for function
  */
-
+#define GATT_CLIENT_CFG_NOTIFY                  0x0001 //notify
+#define GATT_CLIENT_CFG_INDICATE                0x0002 //indicate
 #define BJJA_LM_SUBG_EVT_PERIOD               5000
 void BJJA_LM_subg_early_init();
 static void BJJA_LM_subg_performPeriodicTask(void);
@@ -404,10 +406,15 @@ static void BJJA_LM_subg_taskFxn(UArg a0, UArg a1);
 void BJJA_parsing_AT_cmd_send_data();
 void BJJA_parsing_AT_cmd_send_data_UART2();
 uint8_t BJJA_LM_check_INGI();
+bool cansec_doNotify(uint8_t index);
+bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data);
 static Clock_Struct BJJA_LM_subG_clkPeriodic;
 Semaphore_Handle gSem;
 uint8_t gProduceFlag=0x00;
 uint8_t gProduceFlag2=0x00;
+uint8_t gService_uuid[16] = {0xf2,0xc3,0xf0,0xae,0xa9,0xfa,0x15,0x8c,0x9d,0x49,0xae,0x73,0x71,0x0a,0x81,0xe7};
+uint8_t gNoti_uuid[16]    = {0x9f,0x9f,0x00,0xc1,0x58,0xbd,0x32,0xb6,0x9e,0x4c,0x21,0x9c,0xc9,0xd6,0xf8,0xbe};
+uint8_t gWrite_uuid[16]   = {0x9f,0x9f,0x00,0xc1,0x58,0xbd,0x32,0xb6,0x9e,0x4c,0x21,0x9c,0xc9,0xd6,0xf8,0xbe};
 
 
 
@@ -416,12 +423,10 @@ uint8_t gPairEnable=0;
 uint32_t gServiceUUID=SIMPLEPROFILE_SERV_UUID;
 uint32_t gNotifyUUID=SIMPLEPROFILE_CHAR4_UUID;
 uint32_t gWriteUUID=SIMPLEPROFILE_CHAR3_UUID;
-uint8_t gServiceUUID128bits[16]={0x00};
-uint8_t gNotifyUUID128bits[16]={0x01};
-uint8_t gWriteUUID128bits[16]={0x02};
 uint16_t gMaxPacket=150;
 uint8_t gDelayTime=150;
 extern uint8 gWriteUART_Length;
+uint8_t gBJJA_LM_State_machine=0x00;
 
 
 
@@ -550,12 +555,11 @@ static void multi_role_init(void)
   ICall_registerApp(&selfEntity, &syncEvent);
 
   // Open Display.
-  //dispHandle = Display_open(Display_Type_ANY, NULL);//todo weli add hello world
   Board_initUser();
-  UartMessage("Hello world",strlen("Hello world"));
+  UartMessage("Hello world\r\n",strlen("Hello world\r\n"));
 
   Board_initUser2();
-  UartMessage2("THIS IS UART2 Hello world",strlen("THIS IS UART2 Hello world"));
+  UartMessage2("THIS IS UART2 Hello world\r\n",strlen("THIS IS UART2 Hello world\r\n"));
 
   // Disable all items in the main menu
   //tbm_setItemStatus(&mrMenuMain, MR_ITEM_NONE, MR_ITEM_ALL);
@@ -977,6 +981,11 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
 
       pStrAddr = (uint8_t*) Util_convertBdAddr2Str(connList[connIndex].addr);
 
+
+      PRINT_DATA("Connected to %s\r\n", pStrAddr);
+      PRINT_DATA("Num Conns: %d\r\n", numConn);
+      PRINT_DATA("+Conntion_handler=%d,%s\r\n",connIndex,Util_convertBdAddr2Str(connList[connIndex].addr));
+      multi_role_doSelectConn(connIndex);
       //Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "Connected to %s", pStrAddr);
       //Display_printf(dispHandle, MR_ROW_NUM_CONN, 0, "Num Conns: %d", numConn);
 
@@ -1043,7 +1052,8 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
       /*Display_printf(dispHandle, MR_ROW_NON_CONN, 0, "%s is disconnected",
                      pStrAddr);
       Display_printf(dispHandle, MR_ROW_NUM_CONN, 0, "Num Conns: %d", numConn);*/
-
+      PRINT_DATA("%s is disconnected",pStrAddr);
+      PRINT_DATA("Num Conns: %d", numConn);
       /*for (i = 0; i < TBM_GET_NUM_ITEM(&mrMenuConnect); i++)
       {
         if (!memcmp(TBM_GET_ACTION_DESC(&mrMenuConnect, i), pStrAddr,
@@ -1317,7 +1327,7 @@ static void multi_role_advCB(uint32_t event, void *pBuf, uintptr_t arg)
 *
 * @return  TRUE if safe to deallocate incoming message, FALSE otherwise.
 */
-static uint8_t multi_role_processGATTMsg(gattMsgEvent_t *pMsg)
+static uint8_t multi_role_processGATTMsg(gattMsgEvent_t *pMsg)//weli todo
 {
   // Get connection index from handle
   uint8_t connIndex = multi_role_getConnIndex(pMsg->connHandle);
@@ -1331,12 +1341,38 @@ static uint8_t multi_role_processGATTMsg(gattMsgEvent_t *pMsg)
 
     // Display the opcode of the message that caused the violation.
     //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "FC Violated: %d", pMsg->msg.flowCtrlEvt.opcode);
+    PRINT_DATA("FC Violated: %d\r\n", pMsg->msg.flowCtrlEvt.opcode);
   }
   else if (pMsg->method == ATT_MTU_UPDATED_EVENT)
   {
     // MTU size updated
-    //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "MTU Size: %d", pMsg->msg.mtuEvt.MTU);
+    PRINT_DATA("MTU Size: %d\r\n", pMsg->msg.mtuEvt.MTU);
   }
+  else if ( ( pMsg->method == ATT_HANDLE_VALUE_NOTI ) )   //notify event
+  {  
+    PRINT_DATA("Incoming data\r\n");
+    uint8_t index = 0;
+    for (index = 0; index < numConn; index ++)
+    {
+      if(connList[index].gNotify_charHdl == pMsg->msg.handleValueNoti.handle)
+      {
+        //uint8_t local_data[64]={0x00};
+        //sprintf(local_data,"%s",connList[index].strAddr);
+        //UartMessage(local_data,strlen(local_data));//print mac address
+        PRINT_DATA("+Incoming=%s,%d,%s\r\n",
+          Util_convertBdAddr2Str(connList[index].addr),pMsg->msg.handleValueNoti.len,
+          pMsg->msg.handleValueNoti.pValue);
+
+      }
+    }  
+    //UartMessage(pMsg->msg.handleValueNoti.pValue, pMsg->msg.handleValueNoti.len);
+    /*if(gDisconn_mode==0)
+    {
+        multi_role_doDisconnect(index);
+      PRINT_DISPLAY("this is a oneshot mode,do disconnect\r\n");
+    }*/
+  }
+
 
 
   // Messages from GATT server
@@ -1496,6 +1532,10 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
         PRINT_DATA("Discovered: %s",Util_convertBdAddr2Str(pAdvRpt->addr));
         /*Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Discovered: %s",
                        Util_convertBdAddr2Str(pAdvRpt->addr));*/
+        if(gBJJA_LM_State_machine==1)
+        {
+          gBJJA_LM_State_machine=2;
+        }
       }
 #else // !DEFAULT_DEV_DISC_BY_SVC_UUID
       /*Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Discovered: %s",
@@ -2013,16 +2053,27 @@ static void multi_role_performPeriodicTask(void)
   //GPIO_write(CONFIG_INGI,0);
   if(BJJA_LM_check_INGI()==1)
   {
-    //todo run do scan OBDII
+    // run do scan OBDII
     UartMessage2("acc on\r\n",strlen("acc on\r\n")); 
-    multi_role_doDiscoverDevices(0);
+    if(gBJJA_LM_State_machine==0)
+    {
+      gBJJA_LM_State_machine=1;
+      multi_role_doDiscoverDevices(0);  
+    }
+    
 
   }
   else
   {
     UartMessage2("acc off\r\n",strlen("acc off\r\n")); 
   }
-
+  PRINT_DATA("current state machine:%d\r\n",gBJJA_LM_State_machine);
+  if(gBJJA_LM_State_machine==2)
+  {
+    gBJJA_LM_State_machine=3;
+    PRINT_DATA("doconnect\r\n");
+    multi_role_doConnect(0);
+  }
 }
 
 /*********************************************************************
@@ -2160,6 +2211,7 @@ static void multi_role_handleKeys(uint8_t keys)
 */
 static void multi_role_processGATTDiscEvent(gattMsgEvent_t *pMsg)
 {
+  PRINT_DATA("%s,line:%d\r\n",__FUNCTION__,__LINE__);
   uint8_t connIndex = multi_role_getConnIndex(pMsg->connHandle);
   MULTIROLE_ASSERT(connIndex < MAX_NUM_BLE_CONNS);
 
@@ -2168,6 +2220,7 @@ static void multi_role_processGATTDiscEvent(gattMsgEvent_t *pMsg)
     // MTU size response received, discover simple service
     if (pMsg->method == ATT_EXCHANGE_MTU_RSP)
     {
+#if 0
       uint8_t uuid[ATT_BT_UUID_SIZE] = { LO_UINT16(SIMPLEPROFILE_SERV_UUID),
                                          HI_UINT16(SIMPLEPROFILE_SERV_UUID) };
 
@@ -2176,18 +2229,33 @@ static void multi_role_processGATTDiscEvent(gattMsgEvent_t *pMsg)
       // Discovery simple service
       VOID GATT_DiscPrimaryServiceByUUID(pMsg->connHandle, uuid,
                                          ATT_BT_UUID_SIZE, selfEntity);
+#else
+      //service uuid 128bit
+      uint8_t uuid[ATT_UUID_SIZE] ={0x00};
+      for(uint8_t i=0;i<ATT_UUID_SIZE;i++)
+      {
+        uuid[i] = gService_uuid[i];
+      }
+      connList[connIndex].discState= BLE_DISC_STATE_SVC;
+      // Discovery of simple service
+      VOID GATT_DiscPrimaryServiceByUUID(pMsg->connHandle, uuid, ATT_UUID_SIZE,
+                                         selfEntity); 
+#endif
     }
+    PRINT_DATA("%s,line:%d\r\n",__FUNCTION__,__LINE__);
   }
   else if (connList[connIndex].discState == BLE_DISC_STATE_SVC)
   {
+    PRINT_DATA("%s,line:%d\r\n",__FUNCTION__,__LINE__);
     // Service found, store handles
     if (pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP &&
         pMsg->msg.findByTypeValueRsp.numInfo > 0)
     {
+      PRINT_DATA("%s,line:%d\r\n",__FUNCTION__,__LINE__);
       svcStartHdl = ATT_ATTR_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0);
       svcEndHdl = ATT_GRP_END_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0);
     }
-
+    PRINT_DATA("%s,line:%d\r\n",__FUNCTION__,__LINE__);
     // If procedure complete
     if (((pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP) &&
          (pMsg->hdr.status == bleProcedureComplete))  ||
@@ -2195,6 +2263,7 @@ static void multi_role_processGATTDiscEvent(gattMsgEvent_t *pMsg)
     {
       if (svcStartHdl != 0)
       {
+        PRINT_DATA("%s,line:%d\r\n",__FUNCTION__,__LINE__);
         attReadByTypeReq_t req;
 
         // Discover characteristic
@@ -2202,9 +2271,16 @@ static void multi_role_processGATTDiscEvent(gattMsgEvent_t *pMsg)
 
         req.startHandle = svcStartHdl;
         req.endHandle = svcEndHdl;
-        req.type.len = ATT_BT_UUID_SIZE;
+        /*req.type.len = ATT_BT_UUID_SIZE;
         req.type.uuid[0] = LO_UINT16(SIMPLEPROFILE_CHAR1_UUID);
-        req.type.uuid[1] = HI_UINT16(SIMPLEPROFILE_CHAR1_UUID);
+        req.type.uuid[1] = HI_UINT16(SIMPLEPROFILE_CHAR1_UUID);*/
+
+        //weli 128bit
+        req.type.len = ATT_UUID_SIZE;
+        for(uint8_t i=0;i<ATT_UUID_SIZE;i++)
+        {
+          req.type.uuid[i] =gNoti_uuid[i];
+        }
 
         VOID GATT_DiscCharsByUUID(pMsg->connHandle, &req, selfEntity);
       }
@@ -2222,13 +2298,58 @@ static void multi_role_processGATTDiscEvent(gattMsgEvent_t *pMsg)
       MULTIROLE_ASSERT(connIndex < MAX_NUM_BLE_CONNS);
 
       // Store the handle of the simpleprofile characteristic 1 value
+#if 0
       connList[connIndex].charHandle
         = BUILD_UINT16(pMsg->msg.readByTypeRsp.pDataList[3],
                        pMsg->msg.readByTypeRsp.pDataList[4]);
-
+#endif
       //Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Simple Svc Found");
 
+
+      PRINT_DATA("%s:%d\r\n",__FUNCTION__,__LINE__);
+      uint8_t *pairs = &pMsg->msg.readByTypeRsp.pDataList[3];
+      uint16_t numPairs = pMsg->msg.readByTypeRsp.numPairs;
+      uint16_t pairLen = pMsg->msg.readByTypeRsp.len;
+      uint16_t tmp_charHdl=0;
+      PRINT_DATA("%s:%d->len:%d,numPairs->%d\r\n",__FUNCTION__,__LINE__,pairLen,numPairs);
+
+      for (uint16_t idx = 0; idx < numPairs; ++idx, pairs += pairLen)
+      {
+        uint16_t handle = *(uint16_t *)&pairs[0];
+        uint16_t uuid = *(uint16_t *)&pairs[2];
+        tmp_charHdl = handle;
+        uint8_t i=0;
+        for(i=0;i<ATT_UUID_SIZE;i++)
+        {
+          if(pairs[2+i]==gWrite_uuid[i])
+            continue;
+          else
+            break;
+        }
+        if(i==ATT_UUID_SIZE)
+        {
+          PRINT_DATA("find the write char handler 128bits\r\n");
+          //discInfo[connIndex].charHdl = tmp_charHdl;//20200519 fixed abnormal bug old version
+          connList[connIndex].gNotify_charHdl = tmp_charHdl;//20200519 fixed abnormal bug
+        }
+        for(i=0;i<ATT_UUID_SIZE;i++)
+        {
+          if(pairs[2+i]==gNoti_uuid[i])
+            continue;
+          else
+            break;
+        }
+        if(i==ATT_UUID_SIZE)
+        {
+          PRINT_DATA("find the notify char handler 128bits\r\n");
+          //discInfo[connIndex].gNotify_charHdl = tmp_charHdl;//20200519 fixed abnormal bug old version
+          connList[connIndex].charHandle = tmp_charHdl;//20200519 fixed abnormal bug
+        }
+      }
+      PRINT_DATA("%s:%d\r\n",__FUNCTION__,__LINE__);
+
       // Now we can use GATT Read/Write
+      PRINT_DATA("Simple Svc Found\r\n");
       //tbm_setItemStatus(&mrMenuPerConn,
       //                  MR_ITEM_GATTREAD | MR_ITEM_GATTWRITE, MR_ITEM_NONE);
     }
@@ -2529,6 +2650,7 @@ static void multi_role_startSvcDiscovery(void)
   // ATT MTU size should be set to the minimum of the Client Rx MTU
   // and Server Rx MTU values
   VOID GATT_ExchangeMTU(mrConnHandle, &req, selfEntity);
+  PRINT_DATA("%s,%d\r\n",__FUNCTION__,__LINE__);
 }
 
 /*********************************************************************
@@ -2746,6 +2868,7 @@ bool multi_role_doCancelConnecting(uint8_t index)
 */
 bool multi_role_doConnect(uint8_t index)
 {
+  PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
   // Temporarily disable advertising
   GapAdv_disable(advHandle);
 
@@ -2786,7 +2909,7 @@ bool multi_role_doConnect(uint8_t index)
  */
 bool multi_role_doSelectConn(uint8_t index)
 {
-  /*uint32_t itemsToDisable = MR_ITEM_NONE;
+  //uint32_t itemsToDisable = MR_ITEM_NONE;
 
   // index cannot be equal to or greater than MAX_NUM_BLE_CONNS
   MULTIROLE_ASSERT(index < MAX_NUM_BLE_CONNS);
@@ -2800,7 +2923,7 @@ bool multi_role_doSelectConn(uint8_t index)
 
     // Diable GATT Read/Write until simple service is found
     //itemsToDisable = MR_ITEM_GATTREAD | MR_ITEM_GATTWRITE;
-  }*/
+  }
 
   // Set the menu title and go to this connection's context
  // TBM_SET_TITLE(&mrMenuPerConn, TBM_GET_ACTION_DESC(&mrMenuSelectConn, index));
@@ -3222,14 +3345,19 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
   gProduceFlag2=1;
   //if(gEnableLog)
     UartMessage2(serialBuffer2,gSerialLen2);
-  /*if(strncmp(serialBuffer,"AT+SKEY=?",strlen("AT+SKEY=?"))==0)
+  if(strncmp(serialBuffer2,"AT+NOTI",strlen("AT+NOTI"))==0)
   {
-    uint8_t data[24]={0x00};
-    sprintf(data,"OK+SKEY=%d\r\n",gPasskey);
-    UartMessage(data,strlen(data));
-  }*/
+    cansec_doNotify(0);
+    PRINT_DATA("OK+NOTI\r\n");
+  }
+  else if (strncmp(serialBuffer2,"AT+SEND",strlen("AT+SEND"))==0)
+  {
+    cansec_Write2Periphearl(0,5,"ATZ\r\n");
+    PRINT_DATA("OK+SEND\r\n");
+  }
 
   //if(g_IsConnected)
+  else
   {
     uint16_t current_index=0;
     while(current_index<gSerialLen2)
@@ -3264,4 +3392,97 @@ uint8_t BJJA_LM_check_INGI()
   }
   return 1; 
 }
+bool cansec_doNotify(uint8_t index)
+{
+  bStatus_t status = FAILURE;
+  // If characteristic has been discovered
+  if (connList[index].charHandle != 0)
+  {
+    PRINT_DATA("cansec_doNotify connHandleMap[%d].connHandle=%x\r\n",index,connList[index].connHandle);
+    attWriteReq_t req;
+    // Allocate GATT write request
+    req.pValue = GATT_bm_alloc(connList[index].connHandle, ATT_WRITE_REQ, 2, NULL);
+    // If successfully allocated
+    if (req.pValue != NULL)
+    {
+      // Fill up request
+      req.len = 2;
+      req.pValue[0] = LO_UINT16(GATT_CLIENT_CFG_NOTIFY);
+      req.pValue[1] = HI_UINT16(GATT_CLIENT_CFG_NOTIFY);
+      req.sig = 0;
+      req.cmd = 0;
+      req.handle = connList[index].gNotify_charHdl+1;//CCC = Nofity characteristic+1
+      PRINT_DATA("CCC:%x,index:%d\r\n",req.handle,index);
+
+      // Send GATT write to controller
+      status = GATT_WriteCharValue(connList[index].connHandle, &req, selfEntity);
+
+      // If not sucessfully sent
+      if ( status != SUCCESS )
+      {
+        // Free write request as the controller will not
+        GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);
+        PRINT_DATA("subcribe Notify fail:%d\r\n",status);
+      }
+    }
+    if (status == SUCCESS)
+    {
+      PRINT_DATA("subcribe Notify success\r\n");
+      // Toggle read / write
+      //doWrite = !doWrite;
+    }
+  }
+
+  return TRUE;
+}
+bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data)
+{
+  bStatus_t status = FAILURE;
+  // If characteristic has been discovered
+  if (connList[index].charHandle != 0)
+  {
+    // Do a write
+    attWriteReq_t req;
+
+    // Allocate GATT write request
+    req.pValue = GATT_bm_alloc(connList[index].connHandle, ATT_WRITE_REQ, len, NULL);
+    // If successfully allocated
+    if (req.pValue != NULL)
+    {
+      // Fill up request
+      req.handle = connList[index].charHandle;
+      req.len = len;
+      //sprintf(req.pValue,"%s",serialBuffer);
+      for(uint16_t i=0;i<len;i++)
+        req.pValue[i] = data[i];
+      req.sig = 0;
+      req.cmd = 0;
+
+      // Send GATT write to controller
+      status = GATT_WriteCharValue(connList[index].connHandle, &req, selfEntity);
+
+      // If not sucessfully sent
+      if ( status != SUCCESS )
+      {
+        // Free write request as the controller will not
+        GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);
+        PRINT_DATA("Write data fail\r\n");
+      }
+      else
+      {
+        PRINT_DATA("Write data SUCCESS\r\n");
+      }
+    }
+    else
+    {
+      PRINT_DATA("Write data fail:%d\r\n",__LINE__);
+    }
+  }
+  else
+  {
+    PRINT_DATA("Write data fail:%d\r\n",__LINE__);
+  }
+  return TRUE;
+}
+
 /************************* THIS IS FOR UART2 END ***********************/
