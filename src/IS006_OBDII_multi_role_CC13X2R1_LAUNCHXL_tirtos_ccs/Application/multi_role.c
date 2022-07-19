@@ -394,6 +394,7 @@ static void multi_role_updateRPA(void);
 /*********************************************************************
  * Add by weli begin for function
  */
+
 #define BJJA_LM_SUBG_EVT_PERIOD               5000
 void BJJA_LM_subg_early_init();
 static void BJJA_LM_subg_performPeriodicTask(void);
@@ -406,6 +407,24 @@ static Clock_Struct BJJA_LM_subG_clkPeriodic;
 Semaphore_Handle gSem;
 uint8_t gProduceFlag=0x00;
 uint8_t gProduceFlag2=0x00;
+
+
+
+
+uint8_t gPairEnable=0;
+uint32_t gServiceUUID=SIMPLEPROFILE_SERV_UUID;
+uint32_t gNotifyUUID=SIMPLEPROFILE_CHAR4_UUID;
+uint32_t gWriteUUID=SIMPLEPROFILE_CHAR3_UUID;
+uint8_t gServiceUUID128bits[16]={0x00};
+uint8_t gNotifyUUID128bits[16]={0x01};
+uint8_t gWriteUUID128bits[16]={0x02};
+uint16_t gMaxPacket=150;
+uint8_t gDelayTime=150;
+extern uint8 gWriteUART_Length;
+
+
+
+
 
 Task_Struct gSubgTask;
 #if defined __TI_COMPILER_VERSION__
@@ -586,7 +605,7 @@ static void multi_role_init(void)
   // Initialize GATT attributes
   GGS_AddService(GATT_ALL_SERVICES);           // GAP
   GATTServApp_AddService(GATT_ALL_SERVICES);   // GATT attributes
-  DevInfo_AddService();                        // Device Information Service
+  //DevInfo_AddService();                        // Device Information Service
   SimpleProfile_AddService(GATT_ALL_SERVICES); // Simple GATT Profile
 
   // Setup the SimpleProfile Characteristic Values
@@ -1916,19 +1935,21 @@ static status_t multi_role_enqueueMsg(uint8_t event, void *pData)
  */
 static void multi_role_processCharValueChangeEvt(uint8_t paramId)
 {
-  uint8_t newValue;
+  uint8_t charValue3[SIMPLEPROFILE_CHAR3_LEN]={0};
+  //uint8_t newValue;
 
   switch(paramId)
   {
-    case SIMPLEPROFILE_CHAR1:
+    /*case SIMPLEPROFILE_CHAR1:
       SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR1, &newValue);
 
       //Display_printf(dispHandle, MR_ROW_CHARSTAT, 0, "Char 1: %d", (uint16_t)newValue);
-      break;
+      break;*/
 
     case SIMPLEPROFILE_CHAR3:
-      SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, &newValue);
-
+      //SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, &newValue);
+      SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, charValue3);
+      UartMessage2(charValue3,/*strlen(charValue3)*/gWriteUART_Length);
       //Display_printf(dispHandle, MR_ROW_CHARSTAT, 0, "Char 3: %d", (uint16_t)newValue);
       break;
 
@@ -1953,6 +1974,7 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
  */
 static void multi_role_performPeriodicTask(void)
 {
+#if 0 //20220719 remove by weli
   uint8_t valueToCopy;
 
   // Call to retrieve the value of the third characteristic in the profile
@@ -1965,6 +1987,7 @@ static void multi_role_performPeriodicTask(void)
     SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
                                &valueToCopy);
   }
+#endif
 }
 
 /*********************************************************************
@@ -3167,6 +3190,29 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
     sprintf(data,"OK+SKEY=%d\r\n",gPasskey);
     UartMessage(data,strlen(data));
   }*/
+
+  //if(g_IsConnected)
+  {
+    uint16_t current_index=0;
+    while(current_index<gSerialLen2)
+    {
+      //uint8_t data[32]={0x00};
+      //sprintf(data,">>index:%d,Len:%d,Delay:%d\r\n",current_index,gSerialLen,gDelayTime);
+      //UartMessage(data,strlen(data));
+      if((gSerialLen - current_index)>=gMaxPacket )
+      {
+        //UartMessage("111\r\n",strlen("111\r\n"));
+        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,gMaxPacket ,serialBuffer2+current_index);
+      }
+      else
+      {
+        //UartMessage("222\r\n",strlen("111\r\n"));
+        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,(gSerialLen2 - current_index) ,serialBuffer2+current_index);
+      }
+      current_index+=gMaxPacket;
+      DELAY_US(1000*gDelayTime);//20ms
+    }
+  }
   clear_uart2();
 }
 /************************* THIS IS FOR UART2 END ***********************/

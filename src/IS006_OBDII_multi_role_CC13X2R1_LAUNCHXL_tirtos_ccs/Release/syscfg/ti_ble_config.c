@@ -25,10 +25,10 @@ uint8_t * pRandomAddress = NULL;
  * Bond Manager Configuration
  */
 
-uint8_t pairMode                =    GAPBOND_PAIRING_MODE_INITIATE;
-uint8_t mitm                    =    true;
+uint8_t pairMode                =    GAPBOND_PAIRING_MODE_NO_PAIRING;
+uint8_t mitm                    =    false;
 uint8_t ioCap                   =    GAPBOND_IO_CAP_DISPLAY_ONLY;
-uint8_t bonding                 =    true;
+uint8_t bonding                 =    false;
 uint8_t secureConnection        =    GAPBOND_SECURE_CONNECTION_ALLOW;
 uint8_t authenPairingOnly       =    false;
 uint8_t autoSyncWL              =    false;

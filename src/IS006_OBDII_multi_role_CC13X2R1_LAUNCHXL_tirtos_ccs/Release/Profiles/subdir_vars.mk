@@ -6,10 +6,10 @@ SHELL = cmd.exe
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-C:/ti/simplelink_cc13x2_26x2_sdk_5_20_00_52/source/ti/ble5stack/profiles/dev_info/cc26xx/devinfoservice.c \
-C:/ti/simplelink_cc13x2_26x2_sdk_5_20_00_52/source/ti/ble5stack/host/gatt_uuid.c \
-C:/ti/simplelink_cc13x2_26x2_sdk_5_20_00_52/source/ti/ble5stack/host/gattservapp_util.c \
-C:/ti/simplelink_cc13x2_26x2_sdk_5_20_00_52/source/ti/ble5stack/profiles/simple_profile/cc26xx/simple_gatt_profile.c 
+../Profiles/devinfoservice.c \
+../Profiles/gatt_uuid.c \
+../Profiles/gattservapp_util.c \
+../Profiles/simple_gatt_profile.c 
 
 C_DEPS += \
 ./Profiles/devinfoservice.d \
@@ -36,9 +36,9 @@ C_DEPS__QUOTED += \
 "Profiles\simple_gatt_profile.d" 
 
 C_SRCS__QUOTED += \
-"C:/ti/simplelink_cc13x2_26x2_sdk_5_20_00_52/source/ti/ble5stack/profiles/dev_info/cc26xx/devinfoservice.c" \
-"C:/ti/simplelink_cc13x2_26x2_sdk_5_20_00_52/source/ti/ble5stack/host/gatt_uuid.c" \
-"C:/ti/simplelink_cc13x2_26x2_sdk_5_20_00_52/source/ti/ble5stack/host/gattservapp_util.c" \
-"C:/ti/simplelink_cc13x2_26x2_sdk_5_20_00_52/source/ti/ble5stack/profiles/simple_profile/cc26xx/simple_gatt_profile.c" 
+"../Profiles/devinfoservice.c" \
+"../Profiles/gatt_uuid.c" \
+"../Profiles/gattservapp_util.c" \
+"../Profiles/simple_gatt_profile.c" 
 
 
