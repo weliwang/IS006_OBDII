@@ -79,9 +79,6 @@ extern uint8_t gPairEnable;
 extern uint32_t gServiceUUID;
 extern uint32_t gNotifyUUID;
 extern uint32_t gWriteUUID;
-extern uint8_t gServiceUUID128bits[16];
-extern uint8_t gNotifyUUID128bits[16];
-extern uint8_t gWriteUUID128bits[16];
 
 /*********************************************************************
  * TYPEDEFS
@@ -91,20 +88,20 @@ extern uint8_t gWriteUUID128bits[16];
  * GLOBAL VARIABLES
  */
 // Simple GATT Profile Service UUID: 0xFFF0
-uint8 simpleProfileServUUID[ATT_UUID_SIZE] =
+uint8 simpleProfileServUUID[ATT_BT_UUID_SIZE] =
 {
-  0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01
+  LO_UINT16(SIMPLEPROFILE_SERV_UUID), HI_UINT16(SIMPLEPROFILE_SERV_UUID)
 };
 // Characteristic 3 UUID: 0xFFF3
-uint8 simpleProfilechar3UUID[ATT_UUID_SIZE] =
+uint8 simpleProfilechar3UUID[ATT_BT_UUID_SIZE] =
 {
-  0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02
+  LO_UINT16(SIMPLEPROFILE_CHAR3_UUID), HI_UINT16(SIMPLEPROFILE_CHAR3_UUID)
 };
 
 // Characteristic 4 UUID: 0xFFF4
-uint8 simpleProfilechar4UUID[ATT_UUID_SIZE] =
+uint8 simpleProfilechar4UUID[ATT_BT_UUID_SIZE] =
 {
-  0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03
+  LO_UINT16(SIMPLEPROFILE_CHAR4_UUID), HI_UINT16(SIMPLEPROFILE_CHAR4_UUID)
 };
 /*********************************************************************
  * EXTERNAL VARIABLES
@@ -125,14 +122,11 @@ static simpleProfileCBs_t *simpleProfile_AppCBs = NULL;
  */
 
 // Simple Profile Service attribute
-gattAttrType_t simpleProfileService = { ATT_UUID_SIZE, simpleProfileServUUID };
+gattAttrType_t simpleProfileService = { ATT_BT_UUID_SIZE, simpleProfileServUUID };
 
 
 // Simple Profile Characteristic 1 Properties
 static uint8 simpleProfileChar1Props = GATT_PROP_READ | GATT_PROP_WRITE;
-
-
-
 
 // Simple Profile Characteristic 3 Properties
 static uint8 simpleProfileChar3Props = GATT_PROP_WRITE;
@@ -161,15 +155,11 @@ static gattCharCfg_t *simpleProfileChar4Config;
 // Simple Profile Characteristic 4 User Description
 static uint8 simpleProfileChar4UserDesp[6] = "Notify";
 
-
-
-
 static uint8 gNotify_Length=0x00;
 uint8 gWriteUART_Length=0x00;
 /*********************************************************************
  * Profile Attributes - Table
  */
-
 static gattAttribute_t simpleProfileAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 {
   // Simple Profile Service
@@ -179,9 +169,6 @@ static gattAttribute_t simpleProfileAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
     0,                                        /* handle */
     (uint8 *)&simpleProfileService            /* pValue */
   },
-
-    
-
     // Characteristic 3 Declaration
     {
       { ATT_BT_UUID_SIZE, characterUUID },
@@ -192,7 +179,7 @@ static gattAttribute_t simpleProfileAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 
       // Characteristic Value 3
       {
-        { ATT_UUID_SIZE, simpleProfilechar3UUID },
+        { ATT_BT_UUID_SIZE, simpleProfilechar3UUID },
         GATT_PERMIT_WRITE,
         0,
         //&simpleProfileChar3//weli old
@@ -217,7 +204,7 @@ static gattAttribute_t simpleProfileAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 
       // Characteristic Value 4
       {
-        { ATT_UUID_SIZE, simpleProfilechar4UUID },
+        { ATT_BT_UUID_SIZE, simpleProfilechar4UUID },
         0,
         0,
         //&simpleProfileChar4//weli old
@@ -259,7 +246,7 @@ static gattAttribute_t simpleProfileAttrTbl_Security[SERVAPP_NUM_ATTR_SUPPORTED]
 
       // Characteristic Value 3
       {
-        { ATT_UUID_SIZE, simpleProfilechar3UUID },
+        { ATT_BT_UUID_SIZE, simpleProfilechar3UUID },
         GATT_PERMIT_AUTHEN_WRITE,//GATT_PERMIT_WRITE,
         0,
         //&simpleProfileChar3//weli old
@@ -284,7 +271,7 @@ static gattAttribute_t simpleProfileAttrTbl_Security[SERVAPP_NUM_ATTR_SUPPORTED]
 
       // Characteristic Value 4
       {
-        { ATT_UUID_SIZE, simpleProfilechar4UUID },
+        { ATT_BT_UUID_SIZE, simpleProfilechar4UUID },
         0,
         0,
         //&simpleProfileChar4//weli old
@@ -373,19 +360,12 @@ bStatus_t SimpleProfile_AddService( uint32 services )
 
   if ( services & SIMPLEPROFILE_SERVICE )
   {
-    /*simpleProfileServUUID[0] = LO_UINT16(gServiceUUID);
+    simpleProfileServUUID[0] = LO_UINT16(gServiceUUID);
     simpleProfileServUUID[1] = HI_UINT16(gServiceUUID);
     simpleProfilechar3UUID[0] = LO_UINT16(gWriteUUID);
     simpleProfilechar3UUID[1] = HI_UINT16(gWriteUUID);
     simpleProfilechar4UUID[0] = LO_UINT16(gNotifyUUID);
-    simpleProfilechar4UUID[1] = HI_UINT16(gNotifyUUID);*/
-    int i=0;
-    for(i=0;i<16;i++)
-    {
-      simpleProfileServUUID[i] = gServiceUUID128bits[i];
-      simpleProfilechar3UUID[i] = gWriteUUID128bits[i];
-      simpleProfilechar4UUID[i] = gNotifyUUID128bits[i];
-    }
+    simpleProfilechar4UUID[1] = HI_UINT16(gNotifyUUID);
     /*uint8 writeUUID[ATT_BT_UUID_SIZE] =
     {
       LO_UINT16(gWriteUUID), HI_UINT16(gWriteUUID)
@@ -570,9 +550,9 @@ static bStatus_t simpleProfile_ReadAttrCB(uint16_t connHandle,
     return ( ATT_ERR_ATTR_NOT_LONG );
   }
 
-  if ( pAttr->type.len == ATT_UUID_SIZE )
+  if ( pAttr->type.len == ATT_BT_UUID_SIZE )
   {
-#if 0
+#if 1
     // 16-bit UUID
     uint16 uuid = BUILD_UINT16( pAttr->type.uuid[0], pAttr->type.uuid[1]);
     if(uuid == gNotifyUUID)//add by weli for modify uuid can't not notify 
@@ -657,7 +637,7 @@ static bStatus_t simpleProfile_WriteAttrCB(uint16_t connHandle,
       uuid = SIMPLEPROFILE_CHAR3_UUID;//add by weli for modify uuid can't not write
     switch ( uuid )
     {
-#if 0
+#if 1
       case SIMPLEPROFILE_CHAR3_UUID:
         if ( status == SUCCESS )
 
@@ -686,7 +666,9 @@ static bStatus_t simpleProfile_WriteAttrCB(uint16_t connHandle,
   else
   {
     // 128-bit UUID
+#if 1
     //status = ATT_ERR_INVALID_HANDLE;
+#else
     uint8_t i=0;
     for(i=0;i<16;i++)
     {
@@ -706,6 +688,7 @@ static bStatus_t simpleProfile_WriteAttrCB(uint16_t connHandle,
     {
       status = ATT_ERR_ATTR_NOT_FOUND;
     }
+#endif
   }
 
   // If a characteristic value changed then callback function to notify application of change
