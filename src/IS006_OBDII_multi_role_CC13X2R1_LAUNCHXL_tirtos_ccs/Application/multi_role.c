@@ -149,7 +149,7 @@ typedef enum {
 #define MR_ADDR_STR_SIZE     15
 
 // How often to perform periodic event (in msec)
-#define MR_PERIODIC_EVT_PERIOD               5000
+#define MR_PERIODIC_EVT_PERIOD               1000
 
 #define CONNINDEX_INVALID  0xFF
 
@@ -403,6 +403,7 @@ void BJJA_LM_subg_createTask(void);
 static void BJJA_LM_subg_taskFxn(UArg a0, UArg a1);
 void BJJA_parsing_AT_cmd_send_data();
 void BJJA_parsing_AT_cmd_send_data_UART2();
+uint8_t BJJA_LM_check_INGI();
 static Clock_Struct BJJA_LM_subG_clkPeriodic;
 Semaphore_Handle gSem;
 uint8_t gProduceFlag=0x00;
@@ -955,7 +956,6 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
 
       connList[connIndex].charHandle = 0;
 
-      Util_startClock(&clkPeriodic);
       
 
       pStrAddr = (uint8_t*) Util_convertBdAddr2Str(connList[connIndex].addr);
@@ -1055,7 +1055,6 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
       if (numConn == 0)
       {
         // Stop periodic clock
-        Util_stopClock(&clkPeriodic);
         //tbm_setItemStatus(&mrMenuMain, TBM_ITEM_NONE, TBM_ITEM_ALL);
         //tbm_setItemStatus(&mrMenuMain, MR_ITEM_NONE, MR_ITEM_ALL ^(MR_ITEM_STARTDISC | MR_ITEM_ADVERTISE | MR_ITEM_PHY));
       }
@@ -1988,6 +1987,17 @@ static void multi_role_performPeriodicTask(void)
                                &valueToCopy);
   }
 #endif
+  //GPIO_write(CONFIG_INGI,0);
+  if(BJJA_LM_check_INGI()==1)
+  {
+    //todo run do scan OBDII
+    UartMessage2("acc on\r\n",strlen("acc on\r\n")); 
+  }
+  else
+  {
+    UartMessage2("acc off\r\n",strlen("acc off\r\n")); 
+  }
+
 }
 
 /*********************************************************************
@@ -3070,6 +3080,7 @@ void BJJA_LM_subg_early_init()
   BJJA_LM_Sub1G_init();
  // Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
   Util_startClock(&BJJA_LM_subG_clkPeriodic);
+  Util_startClock(&clkPeriodic);//check INGI whether ON
 
   
 
@@ -3090,6 +3101,7 @@ void BJJA_LM_subg_semphore_init()
 }
 static void BJJA_LM_subg_performPeriodicTask(void)
 {
+  return;//remove by weli
 #if 0
   //GapAdv_disable(advHandle);
   Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
@@ -3214,5 +3226,16 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
     }
   }
   clear_uart2();
+}
+uint8_t BJJA_LM_check_INGI()
+{
+  uint8_t INGITimes=5;
+  while(INGITimes--)
+  {
+    DELAY_US(1000*20);
+    if(GPIO_read(CONFIG_INGI))//weli:INGI DIO3 low active
+      return 0;   
+  }
+  return 1; 
 }
 /************************* THIS IS FOR UART2 END ***********************/
