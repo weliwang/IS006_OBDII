@@ -149,7 +149,7 @@ typedef enum {
 #define MR_ADDR_STR_SIZE     15
 
 // How often to perform periodic event (in msec)
-#define MR_PERIODIC_EVT_PERIOD               1000
+#define MR_PERIODIC_EVT_PERIOD               2000
 
 #define CONNINDEX_INVALID  0xFF
 
@@ -422,6 +422,23 @@ uint8_t gWriteUUID128bits[16]={0x02};
 uint16_t gMaxPacket=150;
 uint8_t gDelayTime=150;
 extern uint8 gWriteUART_Length;
+
+
+
+
+
+
+void PRINT_DATA(char *ptr, ...)
+{
+  uint8 data[255] = { 0 };
+  va_list ap;
+  va_start(ap, ptr);
+  //vsprintf(data, ptr, ap);
+  SystemP_vsnprintf(data, 200, ptr, ap);
+  va_end(ap);
+  UartMessage2(data, strlen(data));
+}
+
 
 
 
@@ -1465,12 +1482,18 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
     case MR_EVT_ADV_REPORT:
     {
       GapScan_Evt_AdvRpt_t* pAdvRpt = (GapScan_Evt_AdvRpt_t*) (pMsg->pData);
-
+      PRINT_DATA("incoming: %s\r\n",Util_convertBdAddr2Str(pAdvRpt->addr));
+      //PRINT_DATA("mac:%x-%x-%x-%x-%x-%x\r\n",pAdvRpt->addr[0],pAdvRpt->addr[1],
+      //  pAdvRpt->addr[2],pAdvRpt->addr[3],pAdvRpt->addr[4],pAdvRpt->addr[5]);
 #if (DEFAULT_DEV_DISC_BY_SVC_UUID == TRUE)
-      if (multi_role_findSvcUuid(SIMPLEPROFILE_SERV_UUID,
-                                 pAdvRpt->pData, pAdvRpt->dataLen))
+      //if (multi_role_findSvcUuid(SIMPLEPROFILE_SERV_UUID,
+      //                           pAdvRpt->pData, pAdvRpt->dataLen))
+      if(pAdvRpt->addr[5]==0xF5 && pAdvRpt->addr[4]==0x88 &&
+        pAdvRpt->addr[3]==0xE2 && pAdvRpt->addr[2]==0x4D &&
+        pAdvRpt->addr[1]==0x5B &&pAdvRpt->addr[0]==0x94)//MAC:F5:88:E2:4D:5B:94
       {
         multi_role_addScanInfo(pAdvRpt->addr, pAdvRpt->addrType);
+        PRINT_DATA("Discovered: %s",Util_convertBdAddr2Str(pAdvRpt->addr));
         /*Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Discovered: %s",
                        Util_convertBdAddr2Str(pAdvRpt->addr));*/
       }
@@ -1992,6 +2015,8 @@ static void multi_role_performPeriodicTask(void)
   {
     //todo run do scan OBDII
     UartMessage2("acc on\r\n",strlen("acc on\r\n")); 
+    multi_role_doDiscoverDevices(0);
+
   }
   else
   {
@@ -2652,6 +2677,7 @@ static uint8_t multi_role_removeConnInfo(uint16_t connHandle)
 bool multi_role_doDiscoverDevices(uint8_t index)
 {
   (void) index;
+  PRINT_DATA("%s,%d\r\n",__FUNCTION__,__LINE__);
 
 #if (DEFAULT_DEV_DISC_BY_SVC_UUID == TRUE)
   // Scanning for DEFAULT_SCAN_DURATION x 10 ms.
