@@ -149,7 +149,7 @@ typedef enum {
 #define MR_ADDR_STR_SIZE     15
 
 // How often to perform periodic event (in msec)
-#define MR_PERIODIC_EVT_PERIOD               2000
+#define MR_PERIODIC_EVT_PERIOD               1000
 
 #define CONNINDEX_INVALID  0xFF
 
@@ -412,6 +412,7 @@ bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data);
 void BJJA_LM_state_machine_heart_beat();
 
 enum STATE_MACHINE {Pwr_on,Idle,Arm,Disarm,Working};
+enum OBD_STATE {O_Discover,O_Connect,O_Notify,O_Running};
 
 
 static Clock_Struct BJJA_LM_subG_clkPeriodic;
@@ -424,6 +425,10 @@ uint8_t gWrite_uuid[16]   = {0x9f,0x9f,0x00,0xc1,0x58,0xbd,0x32,0xb6,0x9e,0x4c,0
 uint8_t gOBDII_mac[6]={0xF5,0x88,0xE2,0x4D,0x5B,0x94};//MAC:F5:88:E2:4D:5B:94
 uint8_t gACC_ON_timer_flag=0x00;
 uint8_t gArm_Disarm_command=0;//set from lte-m or ble command,to notify state machine try to entry arm or disarm state
+uint8_t gWorkingHeartBeat=0x00;
+uint8_t WorkingHeartBeatTimer=10;
+uint8_t gWaitCount=0x00;
+uint8_t gWaitTimer=5;
 
 
 uint8_t gPairEnable=0;
@@ -435,6 +440,7 @@ uint8_t gDelayTime=150;
 extern uint8 gWriteUART_Length;
 extern uint8_t gPacket[10];
 enum STATE_MACHINE gBJJA_LM_State_machine=Pwr_on;
+enum OBD_STATE gBJJA_LM_Obd_state=O_Discover;
 
 
 
@@ -1573,9 +1579,12 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
         PRINT_DATA("Discovered: %s",Util_convertBdAddr2Str(pAdvRpt->addr));
         /*Display_printf(dispHandle, MR_ROW_CUR_CONN, 0, "Discovered: %s",
                        Util_convertBdAddr2Str(pAdvRpt->addr));*/
-        if(gBJJA_LM_State_machine==1)
+        if(gBJJA_LM_Obd_state==O_Discover)
         {
-          gBJJA_LM_State_machine=2;
+          //gBJJA_LM_State_machine=2;
+          gBJJA_LM_Obd_state=O_Connect;
+          gWaitCount=1;
+
         }
       }
 #else // !DEFAULT_DEV_DISC_BY_SVC_UUID
@@ -2385,6 +2394,8 @@ static void multi_role_processGATTDiscEvent(gattMsgEvent_t *pMsg)
       PRINT_DATA("Simple Svc Found\r\n");
       //tbm_setItemStatus(&mrMenuPerConn,
       //                  MR_ITEM_GATTREAD | MR_ITEM_GATTWRITE, MR_ITEM_NONE);
+      gBJJA_LM_Obd_state=O_Notify;
+      gWaitCount=1;
     }
 
     connList[connIndex].discState = BLE_DISC_STATE_IDLE;
@@ -3475,13 +3486,13 @@ bool cansec_doNotify(uint8_t index)
         // Free write request as the controller will not
         GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);
         PRINT_DATA("subcribe Notify fail:%d\r\n",status);
+        //weli todo
       }
     }
     if (status == SUCCESS)
     {
       PRINT_DATA("subcribe Notify success\r\n");
-      // Toggle read / write
-      //doWrite = !doWrite;
+      gBJJA_LM_Obd_state=O_Running;
     }
   }
 
@@ -3556,6 +3567,201 @@ uint8_t BJJA_LM_check_OBDII_is_online()
   }
   return 0;
 }
+void BJJA_LM_Working_state_running()
+{
+  PRINT_DATA("gBJJA_LM_Obd_state=%d\r\n",gBJJA_LM_Obd_state);
+  if(gACC_ON_timer_flag>=3)
+  {
+    
+    if(gBJJA_LM_Obd_state==O_Discover)
+    {
+      multi_role_doDiscoverDevices(0);
+      //gBJJA_LM_Obd_state=O_Connect;
+    }
+    else if(gBJJA_LM_Obd_state==O_Connect)
+    {
+      //waiting for few seconds
+      if(gWaitCount>0 && gWaitCount<gWaitTimer)
+      {
+        gWaitCount++;
+      }
+      else
+      {
+        multi_role_doConnect(0);//todo:注意index參數
+        //todo:如何connect失敗,怎麼recovery.
+        gWaitCount=0;
+      }
+      
+    }
+    else if(gBJJA_LM_Obd_state==O_Notify)
+    {
+      if(gWaitCount>0 && gWaitCount<gWaitTimer)
+      {
+        gWaitCount++;
+      }
+      else
+      {
+        //todo notify device device
+        //建立notify時,要先找正確的mac地址在建立,index欄位
+        cansec_doNotify(0);//todo:need mactch obdii mac
+        //todo:如何notify失敗,怎麼recovery,key word subcribe Notify fail:
+        gWaitCount=0;
+      }
+      
+    }
+    else if(gBJJA_LM_Obd_state==O_Running)
+    {
+      //todo OBDII init command first time.
+      //todo:如果有中斷連線event,把狀態機改成discover,然後在重新clear obdii藍牙
+      gWorkingHeartBeat++;
+      if(gWorkingHeartBeat>=WorkingHeartBeatTimer)//per 10seconds
+      {
+        cansec_Write2Periphearl(0,6,"01A6\r\n");
+        PRINT_DATA("Odometer:12345km,fuel level:76%\r\n");
+        //todo:weli notify ltem and ble
+        gWorkingHeartBeat=0;
+      }
+    }
+
+  }
+  else if(gACC_ON_timer_flag==0)
+  {
+    gBJJA_LM_State_machine=Idle;
+    //todo:notify lte-m and ble
+    PRINT_DATA("Entry Idle state,notify ble and Lte-M\r\n");
+  }
+}
+void BJJA_LM_entry_Working_state()
+{
+  if(gACC_ON_timer_flag>=3)
+  {
+    gBJJA_LM_State_machine=Working;
+  }
+  else if(gACC_ON_timer_flag==0)
+  {
+    gBJJA_LM_State_machine=Idle;
+    PRINT_DATA("Entry Idle state,notify ble and Lte-M\r\n");
+  }
+}
+void BJJA_LM_Entry_Idle_state()
+{
+  //todo
+  //check INGI all off
+  if(gACC_ON_timer_flag==0)
+  {
+    //disconnect obdii device
+    if(BJJA_LM_check_OBDII_is_online())
+    {
+      multi_role_doDisconnect(0);
+      PRINT_DATA("OBDII online,request disconnect\r\n");
+    }
+    else
+    {
+      PRINT_DATA("OBDII has been offline\r\n");
+    }
+    gBJJA_LM_State_machine=Idle;
+    PRINT_DATA("Entry Idle state,notify ble and Lte-M\r\n");
+    //todo:weli notify ltem and ble
+  }
+  else
+  {
+    //do nothing;
+  }
+}
+void BJJA_LM_Entry_DisArm_state()
+{
+  if(gArm_Disarm_command!=0)
+  {
+    if(gArm_Disarm_command==2)//ask entry disarm state
+    {
+      //check INGI all off
+      if(gACC_ON_timer_flag==0)
+      {
+        //disconnect obdii device
+        if(BJJA_LM_check_OBDII_is_online())
+        {
+          multi_role_doDisconnect(0);
+          PRINT_DATA("OBDII online,request disconnect\r\n");
+        }
+        else
+        {
+          PRINT_DATA("OBDII has been offline\r\n");
+        }
+        
+        //send disarm state to sub1g
+        //aa 13 04 04 02 03 03 03 03 01//enable all S OFF
+        gPacket[0]=0xaa;
+        gPacket[1]=0x03;
+        gPacket[2]=0x04;
+        gPacket[3]=0x04;
+        gPacket[4]=0x02;
+        gPacket[5]=0x03;
+        gPacket[6]=0x03;
+        gPacket[7]=0x03;
+        gPacket[8]=0x03;
+        gPacket[9]=0x01;
+        Semaphore_post(gSem);//unlock 
+        gBJJA_LM_State_machine=Disarm;
+
+        //todo notify to lte-m and ble
+        PRINT_DATA("entry disarm-state OK\r\n");
+      }
+      else
+      {
+        //todo notify to lte-m and ble
+        PRINT_DATA("entry disarm-state fail\r\n");
+      }
+    }
+    gArm_Disarm_command=0;
+
+  }
+}
+void BJJA_LM_Entry_Arm_state()
+{
+  if(gArm_Disarm_command!=0)
+  {
+    if(gArm_Disarm_command==1)//ask entry arm state
+    {
+      if(gACC_ON_timer_flag==0 && BJJA_LM_check_DOOR()==0)//INGI OFF & DOOR off
+      {
+        //disconnect obdii device
+        if(BJJA_LM_check_OBDII_is_online())
+        {
+          multi_role_doDisconnect(0);
+          PRINT_DATA("OBDII online,request disconnect\r\n");
+        }
+        else
+        {
+          PRINT_DATA("OBDII has been offline\r\n");
+        }
+        //send arm state to sub1g
+        //aa 02 04 04 02 03 03 03 03 01//enable all S ON
+        gPacket[0]=0xaa;
+        gPacket[1]=0x02;
+        gPacket[2]=0x04;
+        gPacket[3]=0x04;
+        gPacket[4]=0x02;
+        gPacket[5]=0x03;
+        gPacket[6]=0x03;
+        gPacket[7]=0x03;
+        gPacket[8]=0x03;
+        gPacket[9]=0x01;
+        Semaphore_post(gSem);//unlock 
+        gBJJA_LM_State_machine=Arm;
+
+        //todo notify to lte-m and ble
+        PRINT_DATA("entry arm-state OK\r\n");
+      }
+      else
+      {
+        //todo notify to lte-m and ble
+        PRINT_DATA("entry arm-state fail\r\n");
+      }
+    }
+    gArm_Disarm_command=0;
+
+  }
+}
 void BJJA_LM_state_machine_heart_beat()
 {
   if(BJJA_LM_check_INGI()==1)
@@ -3606,90 +3812,31 @@ void BJJA_LM_state_machine_heart_beat()
       break;
   }
 
+  if(gBJJA_LM_State_machine==Idle)
+  {
+    BJJA_LM_Entry_DisArm_state();
+    BJJA_LM_Entry_Arm_state();
+    BJJA_LM_entry_Working_state();
+  }
+  else if(gBJJA_LM_State_machine==Arm)
+  {
+    BJJA_LM_Entry_DisArm_state();
+  }
+  else if(gBJJA_LM_State_machine==Disarm)
+  {
+    BJJA_LM_Entry_Arm_state();
+    BJJA_LM_entry_Working_state();
+  }
+  else if(gBJJA_LM_State_machine==Working)
+  {
+    BJJA_LM_Working_state_running();
+    BJJA_LM_Entry_Idle_state();
+  }
   if(gArm_Disarm_command!=0)
   {
-    if(gArm_Disarm_command==1)//ask entry arm state
-    {
-      if(gACC_ON_timer_flag==0 && BJJA_LM_check_DOOR()==0)//INGI OFF & DOOR off
-      {
-        //disconnect obdii device
-        if(BJJA_LM_check_OBDII_is_online())
-        {
-          multi_role_doDisconnect(0);
-          PRINT_DATA("OBDII online,request disconnect\r\n");
-        }
-        else
-        {
-          PRINT_DATA("OBDII has been offline\r\n");
-        }
-        //send arm state to sub1g
-        //aa 02 04 04 02 03 03 03 03 01//enable all S ON
-        gPacket[0]=0xaa;
-        gPacket[1]=0x02;
-        gPacket[2]=0x04;
-        gPacket[3]=0x04;
-        gPacket[4]=0x02;
-        gPacket[5]=0x03;
-        gPacket[6]=0x03;
-        gPacket[7]=0x03;
-        gPacket[8]=0x03;
-        gPacket[9]=0x01;
-        Semaphore_post(gSem);//unlock 
-        gBJJA_LM_State_machine=Arm;
-
-        //todo notify to lte-m and ble
-        PRINT_DATA("entry arm-state OK\r\n");
-      }
-      else
-      {
-        //todo notify to lte-m and ble
-        PRINT_DATA("entry arm-state fail\r\n");
-      }
-    }
-    else if(gArm_Disarm_command==2)//ask entry disarm state
-    {
-      //check INGI all off
-      if(gACC_ON_timer_flag==0)
-      {
-        //disconnect obdii device
-        if(BJJA_LM_check_OBDII_is_online())
-        {
-          multi_role_doDisconnect(0);
-          PRINT_DATA("OBDII online,request disconnect\r\n");
-        }
-        else
-        {
-          PRINT_DATA("OBDII has been offline\r\n");
-        }
-        
-        //send disarm state to sub1g
-        //aa 13 04 04 02 03 03 03 03 01//enable all S OFF
-        gPacket[0]=0xaa;
-        gPacket[1]=0x03;
-        gPacket[2]=0x04;
-        gPacket[3]=0x04;
-        gPacket[4]=0x02;
-        gPacket[5]=0x03;
-        gPacket[6]=0x03;
-        gPacket[7]=0x03;
-        gPacket[8]=0x03;
-        gPacket[9]=0x01;
-        Semaphore_post(gSem);//unlock 
-        gBJJA_LM_State_machine=Disarm;
-
-        //todo notify to lte-m and ble
-        PRINT_DATA("entry disarm-state OK\r\n");
-      }
-      else
-      {
-        //todo notify to lte-m and ble
-        PRINT_DATA("entry disarm-state fail\r\n");
-      }
-    }
-    gArm_Disarm_command=0;
-
+    PRINT_DATA("todo:state machine not match\r\n");
+    //todo notify msg by ble and lte-m
   }
-  
 
   /*if(gBJJA_LM_State_machine==2)
   {
