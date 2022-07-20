@@ -212,7 +212,7 @@ void callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
         //uint32_t new_time =
         RFQueue_nextEntry();
         
-        if(packet[0]==0xaa && packet[1]==0xfd)
+        if(packet[0]==0xaa &&(packet[1]==0xfd || packet[1]==0xfc))
         {
             gAck_SubG=1;
             //if(new_time-old_time>=4000*50)
@@ -290,7 +290,7 @@ uint8_t BJJA_LM_late_send_cmd(uint8_t freq)
 void BJJA_LM_entryTX()
 {
     //aa 02 04 04 02 03 03 03 03 01//enable all S ON
-    gPacket[0]=0xaa;
+    /*gPacket[0]=0xaa;
     gPacket[1]=0x02;
     gPacket[2]=0x04;
     gPacket[3]=0x04;
@@ -299,7 +299,7 @@ void BJJA_LM_entryTX()
     gPacket[6]=0x03;
     gPacket[7]=0x03;
     gPacket[8]=0x03;
-    gPacket[9]=0x01;
+    gPacket[9]=0x01;*/
     //RF_EventMask terminationReason = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTx,
     //                                               RF_PriorityHigh/*RF_PriorityNormal*/, NULL, 0);
     RF_EventMask terminationReason =

@@ -406,8 +406,14 @@ static void BJJA_LM_subg_taskFxn(UArg a0, UArg a1);
 void BJJA_parsing_AT_cmd_send_data();
 void BJJA_parsing_AT_cmd_send_data_UART2();
 uint8_t BJJA_LM_check_INGI();
+uint8_t BJJA_LM_check_DOOR();
 bool cansec_doNotify(uint8_t index);
 bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data);
+void BJJA_LM_state_machine_heart_beat();
+
+enum STATE_MACHINE {Pwr_on,Idle,Arm,Disarm,Working};
+
+
 static Clock_Struct BJJA_LM_subG_clkPeriodic;
 Semaphore_Handle gSem;
 uint8_t gProduceFlag=0x00;
@@ -415,8 +421,9 @@ uint8_t gProduceFlag2=0x00;
 uint8_t gService_uuid[16] = {0xf2,0xc3,0xf0,0xae,0xa9,0xfa,0x15,0x8c,0x9d,0x49,0xae,0x73,0x71,0x0a,0x81,0xe7};
 uint8_t gNoti_uuid[16]    = {0x9f,0x9f,0x00,0xc1,0x58,0xbd,0x32,0xb6,0x9e,0x4c,0x21,0x9c,0xc9,0xd6,0xf8,0xbe};
 uint8_t gWrite_uuid[16]   = {0x9f,0x9f,0x00,0xc1,0x58,0xbd,0x32,0xb6,0x9e,0x4c,0x21,0x9c,0xc9,0xd6,0xf8,0xbe};
-
-
+uint8_t gOBDII_mac[6]={0xF5,0x88,0xE2,0x4D,0x5B,0x94};//MAC:F5:88:E2:4D:5B:94
+uint8_t gACC_ON_timer_flag=0x00;
+uint8_t gArm_Disarm_command=0;//set from lte-m or ble command,to notify state machine try to entry arm or disarm state
 
 
 uint8_t gPairEnable=0;
@@ -426,7 +433,8 @@ uint32_t gWriteUUID=SIMPLEPROFILE_CHAR3_UUID;
 uint16_t gMaxPacket=150;
 uint8_t gDelayTime=150;
 extern uint8 gWriteUART_Length;
-uint8_t gBJJA_LM_State_machine=0x00;
+extern uint8_t gPacket[10];
+enum STATE_MACHINE gBJJA_LM_State_machine=Pwr_on;
 
 
 
@@ -811,13 +819,12 @@ static uint8_t multi_role_processStackMsg(ICall_Hdr *pMsg)
                 }
                 break;
               case HCI_DISCONNECT:
+                PRINT_DATA("event:HCI_DISCONNECT\r\n");
                 break;
 
               default:
                 {
-                  //Display_printf(dispHandle, MR_ROW_NON_CONN, 0,
-                  //               "Unknown Cmd Status: 0x%04x::0x%02x",
-                  //               pMyMsg->cmdOpcode, pMyMsg->cmdStatus);
+                  PRINT_DATA("Unknown Cmd Status: 0x%04x::0x%02x",pMyMsg->cmdOpcode, pMyMsg->cmdStatus);
                 }
               break;
             }
@@ -1016,7 +1023,7 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
       // Enable/disable Main menu items properly
       //tbm_setItemStatus(&mrMenuMain,
       //                  MR_ITEM_ALL & ~(itemsToDisable), itemsToDisable);
-
+#if 0//mark by weli
       if (numConn < MAX_NUM_BLE_CONNS)
       {
         // Start advertising since there is room for more connections
@@ -1027,7 +1034,39 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
         // Stop advertising since there is no room for more connections
         GapAdv_disable(advHandle);
       }
+#else
 
+      uint8_t check_obdii_dev=0x00;
+      for(i=0;i<numConn;i++)
+      {
+        if(connList[i].addr[5]==gOBDII_mac[0] && 
+          connList[i].addr[4]==gOBDII_mac[1] &&
+          connList[i].addr[3]==gOBDII_mac[2] && 
+          connList[i].addr[2]==gOBDII_mac[3] &&
+          connList[i].addr[1]==gOBDII_mac[4] && 
+          connList[i].addr[0]==gOBDII_mac[5] && connList[i].connHandle!=LINKDB_CONNHANDLE_INVALID
+          )
+        {
+          check_obdii_dev=1;
+          break;
+        }
+      }
+      if(check_obdii_dev==0 && numConn == 1)
+      {
+        GapAdv_disable(advHandle);//add by weli
+        PRINT_DATA("ble(phone) has been link,disable adv\r\n");
+      }
+      else if(check_obdii_dev==1 && numConn==2)
+      {
+        GapAdv_disable(advHandle);//add by weli
+        PRINT_DATA("ble(phone) and OBDII has been link,disable adv\r\n");
+      }
+      else
+      {
+        PRINT_DATA("still ADV\r\n"); 
+      }
+      
+#endif
       break;
     }
 
@@ -1054,6 +1093,8 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
       Display_printf(dispHandle, MR_ROW_NUM_CONN, 0, "Num Conns: %d", numConn);*/
       PRINT_DATA("%s is disconnected",pStrAddr);
       PRINT_DATA("Num Conns: %d", numConn);
+      //todo weli,check whether obdii disconnect,is yes ,reconnect
+
       /*for (i = 0; i < TBM_GET_NUM_ITEM(&mrMenuConnect); i++)
       {
         if (!memcmp(TBM_GET_ACTION_DESC(&mrMenuConnect, i), pStrAddr,
@@ -1524,9 +1565,9 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
 #if (DEFAULT_DEV_DISC_BY_SVC_UUID == TRUE)
       //if (multi_role_findSvcUuid(SIMPLEPROFILE_SERV_UUID,
       //                           pAdvRpt->pData, pAdvRpt->dataLen))
-      if(pAdvRpt->addr[5]==0xF5 && pAdvRpt->addr[4]==0x88 &&
-        pAdvRpt->addr[3]==0xE2 && pAdvRpt->addr[2]==0x4D &&
-        pAdvRpt->addr[1]==0x5B &&pAdvRpt->addr[0]==0x94)//MAC:F5:88:E2:4D:5B:94
+      if(pAdvRpt->addr[5]==gOBDII_mac[0] && pAdvRpt->addr[4]==gOBDII_mac[1] &&
+        pAdvRpt->addr[3]==gOBDII_mac[2] && pAdvRpt->addr[2]==gOBDII_mac[3] &&
+        pAdvRpt->addr[1]==gOBDII_mac[4] &&pAdvRpt->addr[0]==gOBDII_mac[5])//MAC:F5:88:E2:4D:5B:94
       {
         multi_role_addScanInfo(pAdvRpt->addr, pAdvRpt->addrType);
         PRINT_DATA("Discovered: %s",Util_convertBdAddr2Str(pAdvRpt->addr));
@@ -2009,10 +2050,23 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
       break;*/
 
     case SIMPLEPROFILE_CHAR3:
-      //SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, &newValue);
       SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, charValue3);
-      UartMessage2(charValue3,/*strlen(charValue3)*/gWriteUART_Length);
-      //Display_printf(dispHandle, MR_ROW_CHARSTAT, 0, "Char 3: %d", (uint16_t)newValue);
+      if(strncmp(charValue3,"AT+ARM",strlen("AT+ARM"))==0)
+      {
+        //SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen("thx for all cansec fans,Weli,amy is baga.") ,"thx for all cansec fans,Weli,amy is baga.");//weli add
+        gArm_Disarm_command=1;
+        PRINT_DATA("from BLE set ARM\r\n");
+      }
+      else if(strncmp(charValue3,"AT+DISARM",strlen("AT+DISARM"))==0)
+      {
+        //SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen("thx for all cansec fans,Weli,amy is baga.") ,"thx for all cansec fans,Weli,amy is baga.");//weli add
+        gArm_Disarm_command=2;
+        PRINT_DATA("from BLE set DISARM\r\n");
+      }
+      else
+      {
+        UartMessage2(charValue3,/*strlen(charValue3)*/gWriteUART_Length);  
+      }
       break;
 
     default:
@@ -2051,29 +2105,8 @@ static void multi_role_performPeriodicTask(void)
   }
 #endif
   //GPIO_write(CONFIG_INGI,0);
-  if(BJJA_LM_check_INGI()==1)
-  {
-    // run do scan OBDII
-    UartMessage2("acc on\r\n",strlen("acc on\r\n")); 
-    if(gBJJA_LM_State_machine==0)
-    {
-      gBJJA_LM_State_machine=1;
-      multi_role_doDiscoverDevices(0);  
-    }
-    
-
-  }
-  else
-  {
-    UartMessage2("acc off\r\n",strlen("acc off\r\n")); 
-  }
-  PRINT_DATA("current state machine:%d\r\n",gBJJA_LM_State_machine);
-  if(gBJJA_LM_State_machine==2)
-  {
-    gBJJA_LM_State_machine=3;
-    PRINT_DATA("doconnect\r\n");
-    multi_role_doConnect(0);
-  }
+  BJJA_LM_state_machine_heart_beat();
+  
 }
 
 /*********************************************************************
@@ -3232,7 +3265,8 @@ void BJJA_LM_subg_early_init()
   Util_startClock(&clkPeriodic);//check INGI whether ON
 
   
-
+  if(gBJJA_LM_State_machine==Pwr_on)
+    gBJJA_LM_State_machine=Idle;
   
   
 }
@@ -3251,15 +3285,8 @@ void BJJA_LM_subg_semphore_init()
 static void BJJA_LM_subg_performPeriodicTask(void)
 {
   return;//remove by weli
-#if 0
-  //GapAdv_disable(advHandle);
-  Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
-  BJJA_LM_early_send_cmd();
-  Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
-#else
   //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
   Semaphore_post(gSem);//unlock 
-#endif
 }
 void BJJA_LM_subg_createTask(void)
 {
@@ -3269,7 +3296,7 @@ void BJJA_LM_subg_createTask(void)
   Task_Params_init(&taskParams);
   taskParams.stack = gSubgTaskStack;
   taskParams.stackSize = MR_TASK_STACK_SIZE;
-  taskParams.priority = 15;//0low,
+  taskParams.priority = MR_TASK_PRIORITY;//0low,
 
   Task_construct(&gSubgTask, BJJA_LM_subg_taskFxn, &taskParams, NULL);
 }
@@ -3350,12 +3377,26 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
     cansec_doNotify(0);
     PRINT_DATA("OK+NOTI\r\n");
   }
+  else if (strncmp(serialBuffer2,"ATT",strlen("ATT"))==0)
+  {
+    cansec_Write2Periphearl(0,6,"01A6\r\n");
+    PRINT_DATA("OK+ATT\r\n");
+  }
   else if (strncmp(serialBuffer2,"AT+SEND",strlen("AT+SEND"))==0)
   {
     cansec_Write2Periphearl(0,5,"ATZ\r\n");
     PRINT_DATA("OK+SEND\r\n");
   }
-
+  else if (strncmp(serialBuffer2,"AT+ARM",strlen("AT+ARM"))==0)
+  {
+    gArm_Disarm_command=1;
+    PRINT_DATA("OK+ARM\r\n");
+  }
+  else if (strncmp(serialBuffer2,"AT+DISARM",strlen("AT+DISARM"))==0)
+  {
+    gArm_Disarm_command=2;
+    PRINT_DATA("OK+DISARM\r\n");
+  }
   //if(g_IsConnected)
   else
   {
@@ -3388,6 +3429,17 @@ uint8_t BJJA_LM_check_INGI()
   {
     DELAY_US(1000*20);
     if(GPIO_read(CONFIG_INGI))//weli:INGI DIO3 low active
+      return 0;   
+  }
+  return 1; 
+}
+uint8_t BJJA_LM_check_DOOR()
+{
+  uint8_t DOORTimes=5;
+  while(DOORTimes--)
+  {
+    DELAY_US(1000*20);
+    if(GPIO_read(CONFIG_DOOR))//weli:INGI DIO3 low active
       return 0;   
   }
   return 1; 
@@ -3484,5 +3536,168 @@ bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data)
   }
   return TRUE;
 }
+uint8_t BJJA_LM_check_OBDII_is_online()
+{
+  uint8_t ret=0x00;
+  uint8_t i=0;
+  for(i=0;i<numConn;i++)
+  {
+    if(connList[i].addr[5]==gOBDII_mac[0] && 
+      connList[i].addr[4]==gOBDII_mac[1] &&
+      connList[i].addr[3]==gOBDII_mac[2] && 
+      connList[i].addr[2]==gOBDII_mac[3] &&
+      connList[i].addr[1]==gOBDII_mac[4] && 
+      connList[i].addr[0]==gOBDII_mac[5] && connList[i].connHandle!=LINKDB_CONNHANDLE_INVALID
+      )
+    {
+      mrConnHandle  = connList[i].connHandle;
+      return 1;
+    }
+  }
+  return 0;
+}
+void BJJA_LM_state_machine_heart_beat()
+{
+  if(BJJA_LM_check_INGI()==1)
+  {
+    if(gACC_ON_timer_flag<=250)
+      gACC_ON_timer_flag++;
 
+    // run do scan OBDII
+    UartMessage2("acc on ",strlen("acc on ")); 
+    /*if(gBJJA_LM_State_machine==0)//if acc on,connect to dbdii
+    {
+      gBJJA_LM_State_machine=1;
+      multi_role_doDiscoverDevices(0);  
+    }*/
+  }
+  else
+  {
+    gACC_ON_timer_flag=0;
+    UartMessage2("acc off ",strlen("acc off ")); 
+  }
+
+  if(BJJA_LM_check_DOOR()==1)
+  {
+    // run do scan OBDII
+    UartMessage2("door on ",strlen("door on ")); 
+  }
+  else
+  {
+    UartMessage2("door off ",strlen("door off ")); 
+  }
+  PRINT_DATA("current state machine:");
+  switch(gBJJA_LM_State_machine)
+  {
+    case Pwr_on:
+      PRINT_DATA("Pwr_on:%d\r\n",gBJJA_LM_State_machine);
+      break;
+    case Idle:
+      PRINT_DATA("Idle:%d\r\n",gBJJA_LM_State_machine);
+      break;
+    case Arm:
+      PRINT_DATA("Arm:%d\r\n",gBJJA_LM_State_machine);
+      break;
+    case Disarm:
+      PRINT_DATA("Disarm:%d\r\n",gBJJA_LM_State_machine);
+      break;
+    case Working:
+      PRINT_DATA("Working:%d\r\n",gBJJA_LM_State_machine);
+      break;
+  }
+
+  if(gArm_Disarm_command!=0)
+  {
+    if(gArm_Disarm_command==1)//ask entry arm state
+    {
+      if(gACC_ON_timer_flag==0 && BJJA_LM_check_DOOR()==0)//INGI OFF & DOOR off
+      {
+        //disconnect obdii device
+        if(BJJA_LM_check_OBDII_is_online())
+        {
+          multi_role_doDisconnect(0);
+          PRINT_DATA("OBDII online,request disconnect\r\n");
+        }
+        else
+        {
+          PRINT_DATA("OBDII has been offline\r\n");
+        }
+        //send arm state to sub1g
+        //aa 02 04 04 02 03 03 03 03 01//enable all S ON
+        gPacket[0]=0xaa;
+        gPacket[1]=0x02;
+        gPacket[2]=0x04;
+        gPacket[3]=0x04;
+        gPacket[4]=0x02;
+        gPacket[5]=0x03;
+        gPacket[6]=0x03;
+        gPacket[7]=0x03;
+        gPacket[8]=0x03;
+        gPacket[9]=0x01;
+        Semaphore_post(gSem);//unlock 
+        gBJJA_LM_State_machine=Arm;
+
+        //todo notify to lte-m and ble
+        PRINT_DATA("entry arm-state OK\r\n");
+      }
+      else
+      {
+        //todo notify to lte-m and ble
+        PRINT_DATA("entry arm-state fail\r\n");
+      }
+    }
+    else if(gArm_Disarm_command==2)//ask entry disarm state
+    {
+      //check INGI all off
+      if(gACC_ON_timer_flag==0)
+      {
+        //disconnect obdii device
+        if(BJJA_LM_check_OBDII_is_online())
+        {
+          multi_role_doDisconnect(0);
+          PRINT_DATA("OBDII online,request disconnect\r\n");
+        }
+        else
+        {
+          PRINT_DATA("OBDII has been offline\r\n");
+        }
+        
+        //send disarm state to sub1g
+        //aa 13 04 04 02 03 03 03 03 01//enable all S OFF
+        gPacket[0]=0xaa;
+        gPacket[1]=0x03;
+        gPacket[2]=0x04;
+        gPacket[3]=0x04;
+        gPacket[4]=0x02;
+        gPacket[5]=0x03;
+        gPacket[6]=0x03;
+        gPacket[7]=0x03;
+        gPacket[8]=0x03;
+        gPacket[9]=0x01;
+        Semaphore_post(gSem);//unlock 
+        gBJJA_LM_State_machine=Disarm;
+
+        //todo notify to lte-m and ble
+        PRINT_DATA("entry disarm-state OK\r\n");
+      }
+      else
+      {
+        //todo notify to lte-m and ble
+        PRINT_DATA("entry disarm-state fail\r\n");
+      }
+    }
+    gArm_Disarm_command=0;
+
+  }
+  
+
+  /*if(gBJJA_LM_State_machine==2)
+  {
+    gBJJA_LM_State_machine=3;
+    PRINT_DATA("doconnect\r\n");
+    multi_role_doConnect(0);
+  }*/
+
+
+}
 /************************* THIS IS FOR UART2 END ***********************/

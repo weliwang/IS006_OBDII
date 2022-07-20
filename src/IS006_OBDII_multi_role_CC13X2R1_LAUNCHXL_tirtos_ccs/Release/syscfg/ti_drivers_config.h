@@ -96,7 +96,10 @@ extern const uint_least8_t              CONFIG_GPIO_BTN2_CONST;
 /* DIO3 */
 extern const uint_least8_t              CONFIG_INGI_CONST;
 #define CONFIG_INGI                     2
-#define CONFIG_TI_DRIVERS_GPIO_COUNT    3
+/* DIO9 */
+extern const uint_least8_t              CONFIG_DOOR_CONST;
+#define CONFIG_DOOR                     3
+#define CONFIG_TI_DRIVERS_GPIO_COUNT    4
 
 /* LEDs are active high */
 #define CONFIG_GPIO_LED_ON  (1)
@@ -132,11 +135,13 @@ extern const PIN_Config BoardGpioInitTable[];
 #define CONFIG_PIN_BTN2                   0x0000000e
 /* Parent Signal: CONFIG_INGI GPIO Pin, (DIO3) */
 #define CONFIG_PIN_0                   0x00000003
+/* Parent Signal: CONFIG_DOOR GPIO Pin, (DIO9) */
+#define CONFIG_PIN_1                   0x00000009
 /* Parent Signal: CONFIG_UART_0 TX, (DIO11) */
 #define CONFIG_PIN_2                   0x0000000b
 /* Parent Signal: CONFIG_UART_0 RX, (DIO16) */
 #define CONFIG_PIN_3                   0x00000010
-#define CONFIG_TI_DRIVERS_PIN_COUNT    7
+#define CONFIG_TI_DRIVERS_PIN_COUNT    8
 
 
 

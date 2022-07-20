@@ -60,7 +60,7 @@ extern "C"
 // Note: this value cannot be greater than the number of items reserved in
 // mrMenuConnect (See multi_role_menu.c)
 // This cannot exceed 27 (two-button menu's constraint)
-#define DEFAULT_MAX_SCAN_RES                  15
+#define DEFAULT_MAX_SCAN_RES                  4
 
 // advertising PHY menu items
 #define MR_ADV_LEGACY_PHY_1_MBPS    0

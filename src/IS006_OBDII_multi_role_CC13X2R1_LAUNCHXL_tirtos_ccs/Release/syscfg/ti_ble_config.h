@@ -36,7 +36,7 @@ extern uint8_t * pRandomAddress;
 // Note: When using the DEFAULT_ADDRESS_MODE as ADDRMODE_RANDOM or 
 // ADDRMODE_RP_WITH_RANDOM_ID, GAP_DeviceInit() should be called with 
 // it's last parameter set to a static random address
-#define DEFAULT_ADDRESS_MODE                  ADDRMODE_RP_WITH_PUBLIC_ID
+#define DEFAULT_ADDRESS_MODE                  ADDRMODE_PUBLIC
 
 // How often to read current RPA (in ms)
 #define READ_RPA_PERIOD                       3000
@@ -49,7 +49,7 @@ extern uint8_t * pRandomAddress;
 //      * Broadcaster: 0
 // Note: When the GAP role includes Peripheral and no v4.1 Controller features
 //       are configured, MAX_NUM_BLE_CONNS must not be greater than 1
-#define MAX_NUM_BLE_CONNS                      8
+#define MAX_NUM_BLE_CONNS                      4
 
 // Maximum number of BLE HCI PDUs. If the maximum number connections (above)
 // is set to 0 then this number should also be set to 0.
@@ -57,7 +57,7 @@ extern uint8_t * pRandomAddress;
 
 // Maximum size in bytes of the BLE HCI PDU. Valid range: 27 to 255
 // The maximum ATT_MTU is MAX_PDU_SIZE - 4.
-#define MAX_PDU_SIZE                  		    69
+#define MAX_PDU_SIZE                  		    192
 
 /*********************************************************************
  * Bond Manager Configuration
@@ -97,25 +97,25 @@ extern void setBondManagerParameters();
 #define INIT_PHYPARAM_MIN_CONN_INT    		  80
 
 // Default maximum connection interval (in 1.25ms)
-#define INIT_PHYPARAM_MAX_CONN_INT    		  80
+#define INIT_PHYPARAM_MAX_CONN_INT    		  400
 
 // Default RSSI polling period in ms
 #define DEFAULT_RSSI_PERIOD                   3000
 
 // Minimum connection interval (units of 1.25ms) if automatic parameter update
 // request is enabled
-#define DEFAULT_UPDATE_MIN_CONN_INTERVAL      400
+#define DEFAULT_UPDATE_MIN_CONN_INTERVAL      80
 
 // Maximum connection interval (units of 1.25ms) if automatic parameter update
 // request is enabled
-#define DEFAULT_UPDATE_MAX_CONN_INTERVAL      800
+#define DEFAULT_UPDATE_MAX_CONN_INTERVAL      160
 
 // Slave latency to use if automatic parameter update request is enabled
-#define DEFAULT_UPDATE_SLAVE_LATENCY          0
+#define DEFAULT_UPDATE_SLAVE_LATENCY          1
 
 // Supervision timeout value (units of 10ms) if automatic parameter update
 // request is enabled
-#define DEFAULT_UPDATE_CONN_TIMEOUT           600
+#define DEFAULT_UPDATE_CONN_TIMEOUT           2000
 
 /*********************************************************************
  * Observer Role Configuration
@@ -162,18 +162,18 @@ extern void setBondManagerParameters();
 
 // Minimum connection interval (units of 1.25ms) if automatic parameter update
 // request is enabled
-#define DEFAULT_DESIRED_MIN_CONN_INTERVAL      400
+#define DEFAULT_DESIRED_MIN_CONN_INTERVAL      80
 
 // Maximum connection interval (units of 1.25ms) if automatic parameter update
 // request is enabled
-#define DEFAULT_DESIRED_MAX_CONN_INTERVAL      800
+#define DEFAULT_DESIRED_MAX_CONN_INTERVAL      160
 
 // Slave latency to use if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_SLAVE_LATENCY          0
+#define DEFAULT_DESIRED_SLAVE_LATENCY          1
 
 // Supervision timeout value (units of 10ms) if automatic parameter update
 // request is enabled
-#define DEFAULT_DESIRED_CONN_TIMEOUT           600
+#define DEFAULT_DESIRED_CONN_TIMEOUT           2000
 
 /*********************************************************************
  * Broadcaster Role Configuration

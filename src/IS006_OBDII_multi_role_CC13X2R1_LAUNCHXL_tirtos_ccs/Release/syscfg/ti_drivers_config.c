@@ -237,7 +237,7 @@ const uint_least8_t ECDH_count = CONFIG_ECDH_COUNT;
 #include <ti/drivers/GPIO.h>
 #include <ti/drivers/gpio/GPIOCC26XX.h>
 
-#define CONFIG_GPIO_COUNT 3
+#define CONFIG_GPIO_COUNT 4
 
 /*
  *  ======== gpioPinConfigs ========
@@ -250,6 +250,8 @@ GPIO_PinConfig gpioPinConfigs[] = {
     GPIOCC26XX_DIO_14 | GPIO_DO_NOT_CONFIG,
     /* CONFIG_INGI */
     GPIOCC26XX_DIO_03 | GPIO_CFG_IN_PU | GPIO_CFG_IN_INT_NONE,
+    /* CONFIG_DOOR */
+    GPIOCC26XX_DIO_09 | GPIO_CFG_IN_PU | GPIO_CFG_IN_INT_NONE,
 };
 
 /*
@@ -267,11 +269,14 @@ GPIO_CallbackFxn gpioCallbackFunctions[] = {
     NULL,
     /* CONFIG_INGI */
     NULL,
+    /* CONFIG_DOOR */
+    NULL,
 };
 
 const uint_least8_t CONFIG_GPIO_BTN1_CONST = CONFIG_GPIO_BTN1;
 const uint_least8_t CONFIG_GPIO_BTN2_CONST = CONFIG_GPIO_BTN2;
 const uint_least8_t CONFIG_INGI_CONST = CONFIG_INGI;
+const uint_least8_t CONFIG_DOOR_CONST = CONFIG_DOOR;
 
 /*
  *  ======== GPIOCC26XX_config ========
@@ -279,8 +284,8 @@ const uint_least8_t CONFIG_INGI_CONST = CONFIG_INGI;
 const GPIOCC26XX_Config GPIOCC26XX_config = {
     .pinConfigs = (GPIO_PinConfig *)gpioPinConfigs,
     .callbacks = (GPIO_CallbackFxn *)gpioCallbackFunctions,
-    .numberOfPinConfigs = 3,
-    .numberOfCallbacks = 3,
+    .numberOfPinConfigs = 4,
+    .numberOfCallbacks = 4,
     .intPriority = (~0)
 };
 
@@ -352,7 +357,7 @@ const uint_least8_t NVS_count = CONFIG_NVS_COUNT;
 #include <ti/drivers/PIN.h>
 #include <ti/drivers/pin/PINCC26XX.h>
 
-#define CONFIG_PIN_COUNT 7
+#define CONFIG_PIN_COUNT 8
 
 const PIN_Config BoardGpioInitTable[CONFIG_PIN_COUNT + 1] = {
     /* Parent Signal: CONFIG_DISPLAY_UART TX, (DIO13) */
@@ -365,6 +370,8 @@ const PIN_Config BoardGpioInitTable[CONFIG_PIN_COUNT + 1] = {
     CONFIG_PIN_BTN2 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_DIS,
     /* Parent Signal: CONFIG_INGI GPIO Pin, (DIO3) */
     CONFIG_PIN_0 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_DIS,
+    /* Parent Signal: CONFIG_DOOR GPIO Pin, (DIO9) */
+    CONFIG_PIN_1 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_DIS,
     /* Parent Signal: CONFIG_UART_0 TX, (DIO11) */
     CONFIG_PIN_2 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
     /* Parent Signal: CONFIG_UART_0 RX, (DIO16) */
