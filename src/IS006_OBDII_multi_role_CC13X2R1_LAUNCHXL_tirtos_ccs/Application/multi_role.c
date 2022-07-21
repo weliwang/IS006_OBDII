@@ -421,6 +421,8 @@ void BJJA_LM_init();
 void BJJA_LM_read_SR_flash();
 void BJJA_LM_write_SR_flash();
 uint8_t BJJA_ascii2hex(uint8_t val);
+int8_t BJJA_LM_find_OBDII_conn_index();
+void BJJA_LM_disconnect_OBDII();
 
 enum STATE_MACHINE {Pwr_on,Idle,Arm,Disarm,Working};
 enum OBD_STATE {O_Discover,O_Connect,O_Notify,O_Running};
@@ -1382,7 +1384,7 @@ static void multi_role_advCB(uint32_t event, void *pBuf, uintptr_t arg)
 *
 * @return  TRUE if safe to deallocate incoming message, FALSE otherwise.
 */
-static uint8_t multi_role_processGATTMsg(gattMsgEvent_t *pMsg)//weli todo
+static uint8_t multi_role_processGATTMsg(gattMsgEvent_t *pMsg)
 {
   // Get connection index from handle
   uint8_t connIndex = multi_role_getConnIndex(pMsg->connHandle);
@@ -3444,12 +3446,12 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
   else if (strncmp(serialBuffer2,"AT+SRD=",strlen("AT+SRD="))==0)
   {
     //AT+SRD=0404020303030302//delete data
-    //todo
+    
     if(gSerialLen2>=25)
     {
       uint8_t find_index=0,i=0,j=0;
       uint8_t new_S[8]={0x00};
-      //todo compare address not match 
+      // compare address not match 
       for(i=0;i<8;i++)
       {
         //gSubGpairing_data[find_index].S_code[i] = (BJJA_ascii2hex(serialBuffer2[(6+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(6+((i*2)+1))]);
@@ -3513,12 +3515,12 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
   }
   else if (strncmp(serialBuffer2,"AT+SR=",strlen("AT+SR="))==0)
   {
-    //todo
+    //
     if(gSerialLen2>=24)
     {
       uint8_t find_index=0,i=0,j=0;
       uint8_t new_S[8]={0x00};
-      //todo compare address not match 
+      // compare address not match 
       for(i=0;i<8;i++)
       {
         //gSubGpairing_data[find_index].S_code[i] = (BJJA_ascii2hex(serialBuffer2[(6+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(6+((i*2)+1))]);
@@ -3655,7 +3657,7 @@ bool cansec_doNotify(uint8_t index)
         // Free write request as the controller will not
         GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);
         PRINT_DATA("subcribe Notify fail:%d\r\n",status);
-        //weli todo
+        BJJA_LM_disconnect_OBDII();
       }
     }
     if (status == SUCCESS)
@@ -3669,6 +3671,14 @@ bool cansec_doNotify(uint8_t index)
 }
 bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data)
 {
+  int8_t val = BJJA_LM_find_OBDII_conn_index();
+  if(val!=-1)
+    index = val;
+  else
+  {
+    PRINT_DATA("obdii mac not fmount,reconnect\r\n");
+    BJJA_LM_disconnect_OBDII();
+  }
   bStatus_t status = FAILURE;
   // If characteristic has been discovered
   if (connList[index].charHandle != 0)
@@ -3699,6 +3709,8 @@ bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data)
         // Free write request as the controller will not
         GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);
         PRINT_DATA("Write data fail\r\n");
+        BJJA_LM_disconnect_OBDII();
+
       }
       else
       {
@@ -3708,13 +3720,35 @@ bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data)
     else
     {
       PRINT_DATA("Write data fail:%d\r\n",__LINE__);
+      BJJA_LM_disconnect_OBDII();
     }
   }
   else
   {
     PRINT_DATA("Write data fail:%d\r\n",__LINE__);
+    BJJA_LM_disconnect_OBDII();
   }
   return TRUE;
+}
+int8_t BJJA_LM_find_OBDII_conn_index()
+{
+  uint8_t ret=-1;
+  for(uint8_t i=0;i<numConn;i++)
+  {
+    if(connList[i].addr[5]==gFlash_data.obdii_mac[0] && 
+      connList[i].addr[4]==gFlash_data.obdii_mac[1] &&
+      connList[i].addr[3]==gFlash_data.obdii_mac[2] && 
+      connList[i].addr[2]==gFlash_data.obdii_mac[3] &&
+      connList[i].addr[1]==gFlash_data.obdii_mac[4] && 
+      connList[i].addr[0]==gFlash_data.obdii_mac[5] && 
+      connList[i].connHandle!=LINKDB_CONNHANDLE_INVALID
+      )
+    {
+      ret=i;
+      break;
+    }
+  }
+  return ret;
 }
 uint8_t BJJA_LM_check_OBDII_is_online()
 {
@@ -3754,10 +3788,11 @@ void BJJA_LM_Working_state_running()
       {
         gWaitCount++;
       }
+      //else if(gWaitCount>0 && gWaitCount>=gWaitTimer)
       else
       {
-        multi_role_doConnect(0);//todo:瘜冽�ndex��
-        //todo:憒�onnect憭望��,�獐recovery.
+        multi_role_doConnect(0);//this is from scanlist,scanlist always is obdii mac address
+        //當connect失敗時,怎麼recovery,怎麼reconnect.
         gWaitCount=0;
       }
       
@@ -3770,18 +3805,29 @@ void BJJA_LM_Working_state_running()
       }
       else
       {
-        //todo notify device device
-        //撱箇�otify���,閬�甇�蝣箇�ac����撱箇��,index甈��
-        cansec_doNotify(0);//todo:need mactch obdii mac
-        //todo:憒�otify憭望��,�獐recovery,key word subcribe Notify fail:
-        gWaitCount=0;
+        //notify device
+        //todo:warning index is MAC address of OBDII
+        int8_t val = BJJA_LM_find_OBDII_conn_index();
+        if(val!=-1)
+        {
+          PRINT_DATA("OBDII device index:%d\r\n",val);
+          cansec_doNotify(val);//need mactch obdii mac
+          //notify fail how to recovery,key word subcribe Notify fail:
+          gWaitCount=0;  
+        }
+        else
+        {
+          PRINT_DATA("not found OBDII device index,roll back to discover\r\n");
+          gBJJA_LM_Obd_state=O_Discover;
+        }
+        
       }
       
     }
     else if(gBJJA_LM_Obd_state==O_Running)
     {
       //todo OBDII init command first time.
-      //todo:憒��葉���蝺vent,��������iscover,�敺��clear obdii����
+      //when obdii disconnect,write data to obdii will cause fail,and then it will reconnct to obdii
       gWorkingHeartBeat++;
       if(gWorkingHeartBeat>=WorkingHeartBeatTimer)//per 10seconds
       {
@@ -3819,15 +3865,7 @@ void BJJA_LM_Entry_Idle_state()
   if(gACC_ON_timer_flag==0)
   {
     //disconnect obdii device
-    if(BJJA_LM_check_OBDII_is_online())
-    {
-      multi_role_doDisconnect(0);
-      PRINT_DATA("OBDII online,request disconnect\r\n");
-    }
-    else
-    {
-      PRINT_DATA("OBDII has been offline\r\n");
-    }
+    BJJA_LM_disconnect_OBDII();
     gBJJA_LM_State_machine=Idle;
     PRINT_DATA("Entry Idle state,notify ble and Lte-M3\r\n");
     //todo:weli notify ltem and ble
@@ -3847,15 +3885,7 @@ void BJJA_LM_Entry_DisArm_state()
       if(gACC_ON_timer_flag==0)
       {
         //disconnect obdii device
-        if(BJJA_LM_check_OBDII_is_online())
-        {
-          multi_role_doDisconnect(0);
-          PRINT_DATA("OBDII online,request disconnect\r\n");
-        }
-        else
-        {
-          PRINT_DATA("OBDII has been offline\r\n");
-        }
+        BJJA_LM_disconnect_OBDII();
         
         //send disarm state to sub1g
         //aa 13 04 04 02 03 03 03 03 01//enable all S OFF
@@ -3895,15 +3925,7 @@ void BJJA_LM_Entry_Arm_state()
       if(gACC_ON_timer_flag==0 && BJJA_LM_check_DOOR()==0)//INGI OFF & DOOR off
       {
         //disconnect obdii device
-        if(BJJA_LM_check_OBDII_is_online())
-        {
-          multi_role_doDisconnect(0);
-          PRINT_DATA("OBDII online,request disconnect\r\n");
-        }
-        else
-        {
-          PRINT_DATA("OBDII has been offline\r\n");
-        }
+        BJJA_LM_disconnect_OBDII();
         //send arm state to sub1g
         //aa 02 04 04 02 03 03 03 03 01//enable all S ON
         gPacket[0]=0xaa;
@@ -4097,5 +4119,18 @@ uint8_t BJJA_ascii2hex(uint8_t val)
   if(val>='A' && val<='F')
     return ((val-'A')+10);
   else return 0x00;
+}
+void BJJA_LM_disconnect_OBDII()
+{
+  if(BJJA_LM_check_OBDII_is_online())
+  {
+    multi_role_doDisconnect(0);
+    PRINT_DATA("OBDII online,request disconnect\r\n");
+  }
+  else
+  {
+    PRINT_DATA("OBDII has been offline\r\n");
+  }
+  gBJJA_LM_Obd_state=O_Discover;
 }
 /************************* THIS IS FOR UART2 END ***********************/
