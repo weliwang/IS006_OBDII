@@ -425,7 +425,7 @@ int8_t BJJA_LM_find_OBDII_conn_index();
 void BJJA_LM_disconnect_OBDII();
 
 enum STATE_MACHINE {Pwr_on,Idle,Arm,Disarm,Working};
-enum OBD_STATE {O_Discover,O_Connect,O_Notify,O_Running};
+enum OBD_STATE {O_Discover,O_Connect,O_Notify,O_Running,O_Running_Late};
 
 
 static Clock_Struct BJJA_LM_subG_clkPeriodic;
@@ -2125,6 +2125,8 @@ static void multi_role_performPeriodicTask(void)
 #endif
   //GPIO_write(CONFIG_INGI,0);
   BJJA_LM_state_machine_heart_beat();
+
+  Util_startClock(&clkPeriodic);
   
 }
 
@@ -2170,7 +2172,7 @@ static void multi_role_clockHandler(UArg arg)
   if (pData->event == MR_EVT_PERIODIC)
   {
     // Start the next period
-    Util_startClock(&clkPeriodic);
+    //Util_startClock(&clkPeriodic);
 
     // Send message to perform periodic task
     multi_role_enqueueMsg(MR_EVT_PERIODIC, NULL);
@@ -3827,11 +3829,48 @@ void BJJA_LM_Working_state_running()
     else if(gBJJA_LM_Obd_state==O_Running)
     {
       //todo OBDII init command first time.
+      /*
+      ATZ
+      STI
+      TI
+      ATD
+      ATD0
+      ATE0
+      ATSP6
+      ATH1
+      ATM0
+      ATS0
+      ATAT1
+      ATAL
+      ATST96
+      0100
+      */
+      cansec_Write2Periphearl(0,4,"ATZ\r\n");DELAY_US(1000*1000);
+      cansec_Write2Periphearl(0,5,"STI\r\n");DELAY_US(1000*200);
+      cansec_Write2Periphearl(0,4,"TI\r\n");DELAY_US(1000*200);
+      cansec_Write2Periphearl(0,5,"ATD\r\n");DELAY_US(1000*200);
+      cansec_Write2Periphearl(0,6,"ATD0\r\n");DELAY_US(1000*200);
+      cansec_Write2Periphearl(0,6,"ATE0\r\n");DELAY_US(1000*200);
+      cansec_Write2Periphearl(0,7,"ATSP6\r\n");DELAY_US(1000*200);
+      cansec_Write2Periphearl(0,6,"ATH1\r\n");DELAY_US(1000*200);
+      cansec_Write2Periphearl(0,6,"ATM0\r\n");DELAY_US(1000*200);
+      cansec_Write2Periphearl(0,6,"ATS0\r\n");DELAY_US(1000*200);
+      cansec_Write2Periphearl(0,7,"ATAT1\r\n");DELAY_US(1000*200);
+      cansec_Write2Periphearl(0,6,"ATAL\r\n");DELAY_US(1000*200);
+      cansec_Write2Periphearl(0,8,"ATST96\r\n");
+
+      gBJJA_LM_Obd_state=O_Running_Late;
+      
+    }
+    else if(gBJJA_LM_Obd_state==O_Running_Late)
+    {
       //when obdii disconnect,write data to obdii will cause fail,and then it will reconnct to obdii
       gWorkingHeartBeat++;
       if(gWorkingHeartBeat>=WorkingHeartBeatTimer)//per 10seconds
       {
         cansec_Write2Periphearl(0,6,"01A6\r\n");
+        DELAY_US(1000*500);//20ms
+        cansec_Write2Periphearl(0,6,"0100\r\n");
         PRINT_DATA("Odometer:12345km,fuel level:76%\r\n");
         //todo:weli notify ltem and ble
         gWorkingHeartBeat=0;
