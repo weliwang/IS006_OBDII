@@ -229,33 +229,30 @@ void BJJA_LM_early_send_cmd()
     
     uint8_t i=0;
     uint8_t ret=0;
-    for(i=0;i<15;i++)//S1
+    uint8_t index=0;
+    for(index=0;index<8;index++)
     {
-        if(BJJA_LM_late_send_cmd(0))//868.34
-            break;
-        if(BJJA_LM_late_send_cmd(1))//868.30
-            break;
-        if(BJJA_LM_late_send_cmd(2))//868.26
-            break;
+        if(gSubGpairing_data[index].enable=='1')
+        {
+            gPacket[2]=gSubGpairing_data[index].S_code[0];
+            gPacket[3]=gSubGpairing_data[index].S_code[1];
+            gPacket[4]=gSubGpairing_data[index].S_code[2];
+            gPacket[5]=gSubGpairing_data[index].S_code[3];
+            gPacket[6]=gSubGpairing_data[index].S_code[4];
+            gPacket[7]=gSubGpairing_data[index].S_code[5];
+            gPacket[8]=gSubGpairing_data[index].S_code[6];
+            gPacket[9]=gSubGpairing_data[index].S_code[7];
+            for(i=0;i<15;i++)//S1
+            {
+                if(BJJA_LM_late_send_cmd(0))//868.34
+                    break;
+                if(BJJA_LM_late_send_cmd(1))//868.30
+                    break;
+                if(BJJA_LM_late_send_cmd(2))//868.26
+                    break;
+            }
+        }
     }
-    /*for(i=0;i<15;i++)//S2
-    {
-        if(BJJA_LM_late_send_cmd(0))//868.26
-            break;
-        if(BJJA_LM_late_send_cmd(1))//868.30
-            break;
-        if(BJJA_LM_late_send_cmd(2))//868.34
-            break;
-    }
-    for(i=0;i<15;i++)//S3
-    {
-        if(BJJA_LM_late_send_cmd(0))//868.26
-            break;
-        if(BJJA_LM_late_send_cmd(1))//868.30
-            break;
-        if(BJJA_LM_late_send_cmd(2))//868.34
-            break;
-    }*/
 }
 
 uint8_t BJJA_LM_late_send_cmd(uint8_t freq)

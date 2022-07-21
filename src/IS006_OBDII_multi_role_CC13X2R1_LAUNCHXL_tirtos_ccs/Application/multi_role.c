@@ -88,7 +88,11 @@ Target Device: cc13x2_26x2
 #include "bjja_lm_utility.h"
 #include "bjja_lm_uart.h"
 #include "bjja_lm_uart2.h"
-
+#include "osal_snv.h"//add by weli
+#define SNV_ID_BJJA_SAVE 0x85
+#define BUF_OF_BJJA_SAVE_LEN 200
+#define SNV_ID_BJJA_FLASH 0x86
+#define BUF_OF_BJJA_FLASH_LEN 200
 /*********************************************************************
  * Add by weli end
  */
@@ -410,6 +414,13 @@ uint8_t BJJA_LM_check_DOOR();
 bool cansec_doNotify(uint8_t index);
 bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data);
 void BJJA_LM_state_machine_heart_beat();
+void BJJA_LM_read_flash();
+void BJJA_LM_write_flash();
+void BJJA_LM_load_default_setting();
+void BJJA_LM_init();
+void BJJA_LM_read_SR_flash();
+void BJJA_LM_write_SR_flash();
+uint8_t BJJA_ascii2hex(uint8_t val);
 
 enum STATE_MACHINE {Pwr_on,Idle,Arm,Disarm,Working};
 enum OBD_STATE {O_Discover,O_Connect,O_Notify,O_Running};
@@ -422,7 +433,7 @@ uint8_t gProduceFlag2=0x00;
 uint8_t gService_uuid[16] = {0xf2,0xc3,0xf0,0xae,0xa9,0xfa,0x15,0x8c,0x9d,0x49,0xae,0x73,0x71,0x0a,0x81,0xe7};
 uint8_t gNoti_uuid[16]    = {0x9f,0x9f,0x00,0xc1,0x58,0xbd,0x32,0xb6,0x9e,0x4c,0x21,0x9c,0xc9,0xd6,0xf8,0xbe};
 uint8_t gWrite_uuid[16]   = {0x9f,0x9f,0x00,0xc1,0x58,0xbd,0x32,0xb6,0x9e,0x4c,0x21,0x9c,0xc9,0xd6,0xf8,0xbe};
-uint8_t gOBDII_mac[6]={0xF5,0x88,0xE2,0x4D,0x5B,0x94};//MAC:F5:88:E2:4D:5B:94
+//uint8_t gOBDII_mac[6]={0xF5,0x88,0xE2,0x4D,0x5B,0x94};//MAC:F5:88:E2:4D:5B:94
 uint8_t gACC_ON_timer_flag=0x00;
 uint8_t gArm_Disarm_command=0;//set from lte-m or ble command,to notify state machine try to entry arm or disarm state
 uint8_t gWorkingHeartBeat=0x00;
@@ -441,8 +452,8 @@ extern uint8 gWriteUART_Length;
 extern uint8_t gPacket[10];
 enum STATE_MACHINE gBJJA_LM_State_machine=Pwr_on;
 enum OBD_STATE gBJJA_LM_Obd_state=O_Discover;
-
-
+SubGpairing_data gSubGpairing_data[8];
+BJJM_LM_flash_data gFlash_data;
 
 
 
@@ -569,11 +580,8 @@ static void multi_role_init(void)
   ICall_registerApp(&selfEntity, &syncEvent);
 
   // Open Display.
-  Board_initUser();
-  UartMessage("Hello world\r\n",strlen("Hello world\r\n"));
 
-  Board_initUser2();
-  UartMessage2("THIS IS UART2 Hello world\r\n",strlen("THIS IS UART2 Hello world\r\n"));
+  BJJA_LM_init();
 
   // Disable all items in the main menu
   //tbm_setItemStatus(&mrMenuMain, MR_ITEM_NONE, MR_ITEM_ALL);
@@ -1045,12 +1053,12 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
       uint8_t check_obdii_dev=0x00;
       for(i=0;i<numConn;i++)
       {
-        if(connList[i].addr[5]==gOBDII_mac[0] && 
-          connList[i].addr[4]==gOBDII_mac[1] &&
-          connList[i].addr[3]==gOBDII_mac[2] && 
-          connList[i].addr[2]==gOBDII_mac[3] &&
-          connList[i].addr[1]==gOBDII_mac[4] && 
-          connList[i].addr[0]==gOBDII_mac[5] && connList[i].connHandle!=LINKDB_CONNHANDLE_INVALID
+        if(connList[i].addr[5]==gFlash_data.obdii_mac[0] && 
+          connList[i].addr[4]==gFlash_data.obdii_mac[1] &&
+          connList[i].addr[3]==gFlash_data.obdii_mac[2] && 
+          connList[i].addr[2]==gFlash_data.obdii_mac[3] &&
+          connList[i].addr[1]==gFlash_data.obdii_mac[4] && 
+          connList[i].addr[0]==gFlash_data.obdii_mac[5] && connList[i].connHandle!=LINKDB_CONNHANDLE_INVALID
           )
         {
           check_obdii_dev=1;
@@ -1571,9 +1579,9 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
 #if (DEFAULT_DEV_DISC_BY_SVC_UUID == TRUE)
       //if (multi_role_findSvcUuid(SIMPLEPROFILE_SERV_UUID,
       //                           pAdvRpt->pData, pAdvRpt->dataLen))
-      if(pAdvRpt->addr[5]==gOBDII_mac[0] && pAdvRpt->addr[4]==gOBDII_mac[1] &&
-        pAdvRpt->addr[3]==gOBDII_mac[2] && pAdvRpt->addr[2]==gOBDII_mac[3] &&
-        pAdvRpt->addr[1]==gOBDII_mac[4] &&pAdvRpt->addr[0]==gOBDII_mac[5])//MAC:F5:88:E2:4D:5B:94
+      if(pAdvRpt->addr[5]==gFlash_data.obdii_mac[0] && pAdvRpt->addr[4]==gFlash_data.obdii_mac[1] &&
+        pAdvRpt->addr[3]==gFlash_data.obdii_mac[2] && pAdvRpt->addr[2]==gFlash_data.obdii_mac[3] &&
+        pAdvRpt->addr[1]==gFlash_data.obdii_mac[4] &&pAdvRpt->addr[0]==gFlash_data.obdii_mac[5])//MAC:F5:88:E2:4D:5B:94
       {
         multi_role_addScanInfo(pAdvRpt->addr, pAdvRpt->addrType);
         PRINT_DATA("Discovered: %s",Util_convertBdAddr2Str(pAdvRpt->addr));
@@ -3408,6 +3416,167 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
     gArm_Disarm_command=2;
     PRINT_DATA("OK+DISARM\r\n");
   }
+  else if (strncmp(serialBuffer2,"AT+OBDMAC=?",strlen("AT+OBDMAC=?"))==0)
+  {
+    PRINT_DATA("OK+OBDMAC:%02x%02x%02x%02x%02x%02x\r\n",gFlash_data.obdii_mac[0],
+      gFlash_data.obdii_mac[1],gFlash_data.obdii_mac[2],
+      gFlash_data.obdii_mac[3],gFlash_data.obdii_mac[4],
+      gFlash_data.obdii_mac[5]);
+  }
+  else if (strncmp(serialBuffer2,"AT+OBDMAC=",strlen("AT+OBDMAC="))==0)
+  {
+    //AT+OBDMAC=F588E24D5B94
+    if(gSerialLen2>=24)
+    {
+      for(uint8_t i=0;i<6;i++)
+      {
+        gFlash_data.obdii_mac[i] = (BJJA_ascii2hex(serialBuffer2[(10+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(10+((i*2)+1))]);
+      }
+      PRINT_DATA("OK+OBDMAC\r\n");
+      BJJA_LM_write_flash();
+    }
+    else
+    {
+      PRINT_DATA("FAIL+OBDMAC\r\n");
+    }
+    
+  }
+  else if (strncmp(serialBuffer2,"AT+SRD=",strlen("AT+SRD="))==0)
+  {
+    //AT+SRD=0404020303030302//delete data
+    //todo
+    if(gSerialLen2>=25)
+    {
+      uint8_t find_index=0,i=0,j=0;
+      uint8_t new_S[8]={0x00};
+      //todo compare address not match 
+      for(i=0;i<8;i++)
+      {
+        //gSubGpairing_data[find_index].S_code[i] = (BJJA_ascii2hex(serialBuffer2[(6+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(6+((i*2)+1))]);
+        new_S[i] = (BJJA_ascii2hex(serialBuffer2[(7+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(7+((i*2)+1))]);
+      }
+      for(i=0;i<8;i++)
+      {
+        if(gSubGpairing_data[i].enable=='1')
+        {
+          find_index=0;
+          for(j=0;j<8;j++)
+          {
+            if(new_S[j]==gSubGpairing_data[i].S_code[j])
+            {
+              find_index++;
+            }
+          }
+          if(find_index>=8)
+          {
+            break;
+          }
+        }
+      }
+      if(find_index>=8)
+      {
+         //clear data
+        gSubGpairing_data[i].enable='0';
+        for(j=0;j<8;j++)
+        {
+            gSubGpairing_data[i].S_code[j] = 0x00;
+        }
+        BJJA_LM_write_SR_flash();
+        PRINT_DATA("OK+SRD\r\n");
+      }
+      else
+      {
+        PRINT_DATA("FAIL+SR:NOT FOUND\r\n");
+      }
+    }
+    else
+    {
+      PRINT_DATA("FAIL+SR\r\n");
+    }
+  }
+  else if (strncmp(serialBuffer2,"AT+SR=?",strlen("AT+SR=?"))==0)
+  {
+    //AT+SR=0404020303030302//add data
+    PRINT_DATA("OK+SR:\r\n");
+    uint8_t i=0;
+    for(i=0;i<8;i++)
+    {
+      if(gSubGpairing_data[i].enable=='1')
+      {
+        PRINT_DATA("[%d]%02x%02x%02x%02x%02x%02x%02x%02x\r\n",i,
+          gSubGpairing_data[i].S_code[0],gSubGpairing_data[i].S_code[1],
+          gSubGpairing_data[i].S_code[2],gSubGpairing_data[i].S_code[3],
+          gSubGpairing_data[i].S_code[4],gSubGpairing_data[i].S_code[5],
+          gSubGpairing_data[i].S_code[6],gSubGpairing_data[i].S_code[7]);
+      }
+    }
+  }
+  else if (strncmp(serialBuffer2,"AT+SR=",strlen("AT+SR="))==0)
+  {
+    //todo
+    if(gSerialLen2>=24)
+    {
+      uint8_t find_index=0,i=0,j=0;
+      uint8_t new_S[8]={0x00};
+      //todo compare address not match 
+      for(i=0;i<8;i++)
+      {
+        //gSubGpairing_data[find_index].S_code[i] = (BJJA_ascii2hex(serialBuffer2[(6+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(6+((i*2)+1))]);
+        new_S[i] = (BJJA_ascii2hex(serialBuffer2[(6+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(6+((i*2)+1))]);
+      }
+      for(i=0;i<8;i++)
+      {
+        if(gSubGpairing_data[i].enable=='1')
+        {
+          find_index=0;
+          for(j=0;j<8;j++)
+          {
+            if(new_S[j]==gSubGpairing_data[i].S_code[j])
+            {
+              find_index++;
+            }
+          }
+          if(find_index>=8)
+          {
+            break;
+          }
+        }
+        
+      }
+
+      if(find_index>=8)
+      {
+        //show fail,has exist
+        PRINT_DATA("FAIL+SR:DATA IS EXIST\r\n");
+      }
+      else
+      {
+        //write data
+        //FIND EMPTY ENABLE FLAG
+        find_index=0;
+        for(i=0;i<8;i++)
+        {
+          if(gSubGpairing_data[i].enable!='1')
+          {
+            break;
+          }
+        }
+        gSubGpairing_data[i].enable='1';
+        for(j=0;j<8;j++)
+        {
+          //gSubGpairing_data[find_index].S_code[i] = (BJJA_ascii2hex(serialBuffer2[(6+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(6+((i*2)+1))]);
+          gSubGpairing_data[i].S_code[j] = new_S[j];
+        }
+        PRINT_DATA("OK+SR\r\n");
+        BJJA_LM_write_SR_flash();
+      }
+      
+    }
+    else
+    {
+      PRINT_DATA("FAIL+SR\r\n");
+    }
+  }
   //if(g_IsConnected)
   else
   {
@@ -3553,12 +3722,12 @@ uint8_t BJJA_LM_check_OBDII_is_online()
   uint8_t i=0;
   for(i=0;i<numConn;i++)
   {
-    if(connList[i].addr[5]==gOBDII_mac[0] && 
-      connList[i].addr[4]==gOBDII_mac[1] &&
-      connList[i].addr[3]==gOBDII_mac[2] && 
-      connList[i].addr[2]==gOBDII_mac[3] &&
-      connList[i].addr[1]==gOBDII_mac[4] && 
-      connList[i].addr[0]==gOBDII_mac[5] && connList[i].connHandle!=LINKDB_CONNHANDLE_INVALID
+    if(connList[i].addr[5]==gFlash_data.obdii_mac[0] && 
+      connList[i].addr[4]==gFlash_data.obdii_mac[1] &&
+      connList[i].addr[3]==gFlash_data.obdii_mac[2] && 
+      connList[i].addr[2]==gFlash_data.obdii_mac[3] &&
+      connList[i].addr[1]==gFlash_data.obdii_mac[4] && 
+      connList[i].addr[0]==gFlash_data.obdii_mac[5] && connList[i].connHandle!=LINKDB_CONNHANDLE_INVALID
       )
     {
       mrConnHandle  = connList[i].connHandle;
@@ -3587,8 +3756,8 @@ void BJJA_LM_Working_state_running()
       }
       else
       {
-        multi_role_doConnect(0);//todo:注意index參數
-        //todo:如何connect失敗,怎麼recovery.
+        multi_role_doConnect(0);//todo:瘜冽�ndex��
+        //todo:憒�onnect憭望��,�獐recovery.
         gWaitCount=0;
       }
       
@@ -3602,9 +3771,9 @@ void BJJA_LM_Working_state_running()
       else
       {
         //todo notify device device
-        //建立notify時,要先找正確的mac地址在建立,index欄位
+        //撱箇�otify���,閬�甇�蝣箇�ac����撱箇��,index甈��
         cansec_doNotify(0);//todo:need mactch obdii mac
-        //todo:如何notify失敗,怎麼recovery,key word subcribe Notify fail:
+        //todo:憒�otify憭望��,�獐recovery,key word subcribe Notify fail:
         gWaitCount=0;
       }
       
@@ -3612,7 +3781,7 @@ void BJJA_LM_Working_state_running()
     else if(gBJJA_LM_Obd_state==O_Running)
     {
       //todo OBDII init command first time.
-      //todo:如果有中斷連線event,把狀態機改成discover,然後在重新clear obdii藍牙
+      //todo:憒��葉���蝺vent,��������iscover,�敺��clear obdii����
       gWorkingHeartBeat++;
       if(gWorkingHeartBeat>=WorkingHeartBeatTimer)//per 10seconds
       {
@@ -3628,7 +3797,7 @@ void BJJA_LM_Working_state_running()
   {
     gBJJA_LM_State_machine=Idle;
     //todo:notify lte-m and ble
-    PRINT_DATA("Entry Idle state,notify ble and Lte-M\r\n");
+    PRINT_DATA("Entry Idle state,notify ble and Lte-M1\r\n");
   }
 }
 void BJJA_LM_entry_Working_state()
@@ -3637,11 +3806,11 @@ void BJJA_LM_entry_Working_state()
   {
     gBJJA_LM_State_machine=Working;
   }
-  else if(gACC_ON_timer_flag==0)
+  /*else if(gACC_ON_timer_flag==0 && (!(gBJJA_LM_State_machine==Disarm) ||!(gBJJA_LM_State_machine==Arm)))
   {
     gBJJA_LM_State_machine=Idle;
-    PRINT_DATA("Entry Idle state,notify ble and Lte-M\r\n");
-  }
+    PRINT_DATA("Entry Idle state,notify ble and Lte-M2\r\n");
+  }*/
 }
 void BJJA_LM_Entry_Idle_state()
 {
@@ -3660,7 +3829,7 @@ void BJJA_LM_Entry_Idle_state()
       PRINT_DATA("OBDII has been offline\r\n");
     }
     gBJJA_LM_State_machine=Idle;
-    PRINT_DATA("Entry Idle state,notify ble and Lte-M\r\n");
+    PRINT_DATA("Entry Idle state,notify ble and Lte-M3\r\n");
     //todo:weli notify ltem and ble
   }
   else
@@ -3711,8 +3880,9 @@ void BJJA_LM_Entry_DisArm_state()
         //todo notify to lte-m and ble
         PRINT_DATA("entry disarm-state fail\r\n");
       }
+      gArm_Disarm_command=0;
     }
-    gArm_Disarm_command=0;
+    
 
   }
 }
@@ -3750,15 +3920,16 @@ void BJJA_LM_Entry_Arm_state()
         gBJJA_LM_State_machine=Arm;
 
         //todo notify to lte-m and ble
-        PRINT_DATA("entry arm-state OK\r\n");
+        PRINT_DATA("entry arm-state OK:%d\r\n",gBJJA_LM_State_machine);
       }
       else
       {
         //todo notify to lte-m and ble
         PRINT_DATA("entry arm-state fail\r\n");
       }
+      gArm_Disarm_command=0;
     }
-    gArm_Disarm_command=0;
+    
 
   }
 }
@@ -3796,21 +3967,22 @@ void BJJA_LM_state_machine_heart_beat()
   switch(gBJJA_LM_State_machine)
   {
     case Pwr_on:
-      PRINT_DATA("Pwr_on:%d\r\n",gBJJA_LM_State_machine);
+      PRINT_DATA("Pwr_on:%d",gBJJA_LM_State_machine);
       break;
     case Idle:
-      PRINT_DATA("Idle:%d\r\n",gBJJA_LM_State_machine);
+      PRINT_DATA("Idle:%d",gBJJA_LM_State_machine);
       break;
     case Arm:
-      PRINT_DATA("Arm:%d\r\n",gBJJA_LM_State_machine);
+      PRINT_DATA("Arm:%d",gBJJA_LM_State_machine);
       break;
     case Disarm:
-      PRINT_DATA("Disarm:%d\r\n",gBJJA_LM_State_machine);
+      PRINT_DATA("Disarm:%d",gBJJA_LM_State_machine);
       break;
     case Working:
-      PRINT_DATA("Working:%d\r\n",gBJJA_LM_State_machine);
+      PRINT_DATA("Working:%d",gBJJA_LM_State_machine);
       break;
   }
+  PRINT_DATA(" gArm_Disarm_command:%d gACC_ON_timer_flag:%d\r\n",gArm_Disarm_command,gACC_ON_timer_flag);
 
   if(gBJJA_LM_State_machine==Idle)
   {
@@ -3820,10 +3992,12 @@ void BJJA_LM_state_machine_heart_beat()
   }
   else if(gBJJA_LM_State_machine==Arm)
   {
+    BJJA_LM_Entry_Arm_state();
     BJJA_LM_Entry_DisArm_state();
   }
   else if(gBJJA_LM_State_machine==Disarm)
   {
+    BJJA_LM_Entry_DisArm_state();
     BJJA_LM_Entry_Arm_state();
     BJJA_LM_entry_Working_state();
   }
@@ -3846,5 +4020,82 @@ void BJJA_LM_state_machine_heart_beat()
   }*/
 
 
+}
+void BJJA_LM_read_flash()
+{
+  osal_snv_read(SNV_ID_BJJA_FLASH, sizeof(gFlash_data), &gFlash_data);
+  PRINT_DATA("sing:%c%c%c\r\n",gFlash_data.sign[0],gFlash_data.sign[1],gFlash_data.sign[2]);
+  PRINT_DATA("OBDII MAC:%02x%02x%02x%02x%02x%02x\r\n",gFlash_data.obdii_mac[0],
+      gFlash_data.obdii_mac[1],gFlash_data.obdii_mac[2],
+      gFlash_data.obdii_mac[3],gFlash_data.obdii_mac[4],
+      gFlash_data.obdii_mac[5]);
+}
+void BJJA_LM_write_flash()
+{
+  osal_snv_write(SNV_ID_BJJA_FLASH, sizeof(gFlash_data),&gFlash_data);
+}
+void BJJA_LM_load_default_setting()
+{
+  osal_snv_read(SNV_ID_BJJA_FLASH, sizeof(gFlash_data), &gFlash_data);
+  if(gFlash_data.sign[0]=='A' && gFlash_data.sign[1]=='M' && gFlash_data.sign[2]=='Y')
+  {
+    PRINT_DATA("data has exist\r\n");
+    return;
+  }
+  else
+  {
+    PRINT_DATA("reload new data\r\n");
+    gFlash_data.sign[0]='A';
+    gFlash_data.sign[1]='M';
+    gFlash_data.sign[2]='Y';
+    gFlash_data.last_statemachine=Idle;
+    gFlash_data.periodic_timer=30;
+    //write save data end in here
+    //osal_snv_write(SNV_ID_BJJA_FLASH, BUF_OF_BJJA_SAVE_LEN, (uint8 *)data);
+    osal_snv_write(SNV_ID_BJJA_FLASH, sizeof(gFlash_data),&gFlash_data);
+  }
+}
+void BJJA_LM_read_SR_flash()
+{
+  osal_snv_read(SNV_ID_BJJA_SAVE, sizeof(gSubGpairing_data[8]),&gSubGpairing_data);
+  uint8_t i=0;
+  for(i=0;i<8;i++)
+  {
+    if(gSubGpairing_data[i].enable=='1')
+    {
+      PRINT_DATA("[%d]%02x%02x%02x%02x%02x%02x%02x%02x\r\n",i,
+        gSubGpairing_data[i].S_code[0],gSubGpairing_data[i].S_code[1],
+        gSubGpairing_data[i].S_code[2],gSubGpairing_data[i].S_code[3],
+        gSubGpairing_data[i].S_code[4],gSubGpairing_data[i].S_code[5],
+        gSubGpairing_data[i].S_code[6],gSubGpairing_data[i].S_code[7]);
+    }
+  }
+}
+void BJJA_LM_write_SR_flash()
+{
+  osal_snv_write(SNV_ID_BJJA_SAVE, sizeof(gSubGpairing_data[8]),&gSubGpairing_data);
+}
+void BJJA_LM_init()
+{
+  Board_initUser();
+  UartMessage("Hello world\r\n",strlen("Hello world\r\n"));
+
+  Board_initUser2();
+  UartMessage2("THIS IS UART2 Hello world\r\n",strlen("THIS IS UART2 Hello world\r\n"));
+
+  BJJA_LM_load_default_setting();
+  BJJA_LM_read_flash();
+  BJJA_LM_read_SR_flash();
+}
+uint8_t BJJA_ascii2hex(uint8_t val)
+{
+  //PRINT_DATA(">%c\r\n",val);
+  if(val>='0' && val<='9')
+    return val-'0';
+  if(val>='a' && val<='f')
+    return ((val-'a')+10);
+  if(val>='A' && val<='F')
+    return ((val-'A')+10);
+  else return 0x00;
 }
 /************************* THIS IS FOR UART2 END ***********************/
