@@ -115,5 +115,9 @@ digraph Model
     CONFIG_UART_0 -> CONFIG_PIN_2
     CONFIG_UART_0 -> CONFIG_PIN_3
 
+    // mod.$name=/ti/drivers/Watchdog
+    CONFIG_WATCHDOG_0 -> ti_drivers_Power
+    CONFIG_WATCHDOG_0 -> ti_drivers_Board
+
     // mod.$name=/ti/drivers/nvs/NVSCC26XX
 }

@@ -257,6 +257,7 @@ void BJJA_LM_early_send_cmd()
 
 uint8_t BJJA_LM_late_send_cmd(uint8_t freq)
 {
+    //BJJA_LM_tick_wdt();//todo confirm
     uint8_t ret=0x00;
     if(freq==0)
     {

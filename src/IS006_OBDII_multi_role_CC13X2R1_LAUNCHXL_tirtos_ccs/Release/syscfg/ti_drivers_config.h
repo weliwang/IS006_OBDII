@@ -175,6 +175,15 @@ extern const uint_least8_t              CONFIG_UART_0_CONST;
 
 
 /*
+ *  ======== Watchdog ========
+ */
+
+extern const uint_least8_t                  CONFIG_WATCHDOG_0_CONST;
+#define CONFIG_WATCHDOG_0                   0
+#define CONFIG_TI_DRIVERS_WATCHDOG_COUNT    1
+
+
+/*
  *  ======== Board_init ========
  *  Perform all required TI-Drivers initialization
  *

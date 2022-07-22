@@ -26,5 +26,6 @@ typedef struct
 extern void BJJA_LM_Sub1G_init();
 extern void BJJA_LM_early_send_cmd();
 extern void BJJA_LM_usSleep(uint16_t value);
+extern void BJJA_LM_tick_wdt();
 extern SubGpairing_data gSubGpairing_data[8];
 #endif

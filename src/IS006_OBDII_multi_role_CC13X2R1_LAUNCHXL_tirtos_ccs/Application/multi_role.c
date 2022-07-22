@@ -486,6 +486,59 @@ uint8_t gSubgTaskStack[MR_TASK_STACK_SIZE];
 /*********************************************************************
  * Add by weli end
  */
+
+
+
+
+/*
+ *  =============================== Watchdog begin===============================
+ */
+#include <ti/drivers/Watchdog.h>
+#include <ti/drivers/watchdog/WatchdogCC26XX.h>
+#include <ti/drivers/Watchdog.h>
+
+volatile bool serviceFlag = true;
+volatile bool watchdogExpired = false;
+Watchdog_Handle watchdogHandle;
+
+void watchdogCallback(uintptr_t unused)
+{
+    /* Clear watchdog interrupt flag */
+    //Watchdog_clear(watchdogHandle);
+
+    watchdogExpired = true;
+
+    /* Insert timeout handling code here. */
+    //UartMessage("WDT Timeout",strlen("WDT Timeout"));
+    //HCI_EXT_ResetSystemCmd(HCI_EXT_RESET_SYSTEM_HARD);
+}
+void BJJA_WDT_init()
+{
+  Watchdog_Params params;
+  Watchdog_init();
+  Watchdog_Params_init(&params);
+  params.callbackFxn = (Watchdog_Callback)watchdogCallback;
+  params.resetMode = Watchdog_RESET_ON;
+
+  watchdogHandle = Watchdog_open(CONFIG_WATCHDOG_0, &params);
+  if (watchdogHandle == NULL) {
+      /* Error opening Watchdog */
+      while (1);
+  }
+  uint32_t reloadValue = Watchdog_convertMsToTicks(watchdogHandle, 10000);
+  Watchdog_setReload(watchdogHandle, reloadValue);
+}
+void BJJA_LM_tick_wdt()
+{
+  //UartMessage("tick wdt2\r\n",strlen("tick wdt2\r\n"));
+  //return;
+  Watchdog_clear(watchdogHandle);
+}
+/*
+ *  =============================== Watchdog end===============================
+ */
+
+
 mrClockEventData_t periodicSubG =
 {
   .event = MR_EVT_SUBG_PERIODIC
@@ -3996,6 +4049,7 @@ void BJJA_LM_Entry_Arm_state()
 }
 void BJJA_LM_state_machine_heart_beat()
 {
+  BJJA_LM_tick_wdt();
   if(BJJA_LM_check_INGI()==1)
   {
     if(gACC_ON_timer_flag<=250)
@@ -4138,6 +4192,7 @@ void BJJA_LM_write_SR_flash()
 }
 void BJJA_LM_init()
 {
+  BJJA_WDT_init();
   Board_initUser();
   UartMessage("Hello world\r\n",strlen("Hello world\r\n"));
 
@@ -4147,6 +4202,7 @@ void BJJA_LM_init()
   BJJA_LM_load_default_setting();
   BJJA_LM_read_flash();
   BJJA_LM_read_SR_flash();
+
 }
 uint8_t BJJA_ascii2hex(uint8_t val)
 {

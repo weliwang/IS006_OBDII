@@ -35,6 +35,8 @@ const TRNG        = scripting.addModule("/ti/drivers/TRNG");
 const TRNG1       = TRNG.addInstance();
 const UART        = scripting.addModule("/ti/drivers/UART", {}, false);
 const UART2       = UART.addInstance();
+const Watchdog    = scripting.addModule("/ti/drivers/Watchdog", {}, false);
+const Watchdog1   = Watchdog.addInstance();
 
 /**
  * Write custom configuration values to the imported modules.
@@ -141,3 +143,13 @@ UART2.uart.txPin.$assign  = "17";
 UART2.uart.rxPin.$assign  = "26";
 UART2.txPinInstance.$name = "CONFIG_PIN_2";
 UART2.rxPinInstance.$name = "CONFIG_PIN_3";
+
+Watchdog1.$name  = "CONFIG_WATCHDOG_0";
+Watchdog1.period = 10000;
+
+/**
+ * Pinmux solution for unlocked pins/peripherals. This ensures that minor changes to the automatic solver in a future
+ * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
+ * re-solve from scratch.
+ */
+Watchdog1.watchdog.$suggestSolution = "WDT0";

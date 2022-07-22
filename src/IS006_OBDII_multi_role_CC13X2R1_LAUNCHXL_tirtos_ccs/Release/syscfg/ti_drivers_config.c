@@ -525,6 +525,39 @@ const uint_least8_t CONFIG_DISPLAY_UART_CONST = CONFIG_DISPLAY_UART;
 const uint_least8_t CONFIG_UART_0_CONST = CONFIG_UART_0;
 const uint_least8_t UART_count = CONFIG_UART_COUNT;
 
+/*
+ *  =============================== Watchdog ===============================
+ */
+
+#include <ti/drivers/Watchdog.h>
+#include <ti/drivers/watchdog/WatchdogCC26XX.h>
+#include <ti/devices/cc13x2_cc26x2/inc/hw_memmap.h>
+
+#define CONFIG_WATCHDOG_COUNT 1
+
+
+WatchdogCC26XX_Object watchdogCC26XXObjects[CONFIG_WATCHDOG_COUNT];
+
+const WatchdogCC26XX_HWAttrs watchdogCC26XXHWAttrs[CONFIG_WATCHDOG_COUNT] = {
+    /* CONFIG_WATCHDOG_0: period = 10000 */
+    {
+        .baseAddr    = WDT_BASE,
+        .reloadValue = 10000
+    },
+};
+
+const Watchdog_Config Watchdog_config[CONFIG_WATCHDOG_COUNT] = {
+    /* CONFIG_WATCHDOG_0 */
+    {
+        .fxnTablePtr = &WatchdogCC26XX_fxnTable,
+        .object      = &watchdogCC26XXObjects[CONFIG_WATCHDOG_0],
+        .hwAttrs     = &watchdogCC26XXHWAttrs[CONFIG_WATCHDOG_0]
+    }
+};
+
+const uint_least8_t CONFIG_WATCHDOG_0_CONST = CONFIG_WATCHDOG_0;
+const uint_least8_t Watchdog_count = CONFIG_WATCHDOG_COUNT;
+
 #include <stdbool.h>
 
 #include <ti/devices/cc13x2_cc26x2/driverlib/ioc.h>
