@@ -314,6 +314,7 @@ static uint8_t numScanRes = 0;
 
 // Scan results filtered by Service UUID
 static scanRec_t scanList[DEFAULT_MAX_SCAN_RES];
+scanRec_t gOBDII_dev;
 #endif // DEFAULT_DEV_DISC_BY_SVC_UUID
 
 // Discovered service start and end handle
@@ -645,7 +646,7 @@ void BJJA_WDT_init()
       /* Error opening Watchdog */
       while (1);
   }
-  uint32_t reloadValue = Watchdog_convertMsToTicks(watchdogHandle, 10000);
+  uint32_t reloadValue = Watchdog_convertMsToTicks(watchdogHandle, 3000);
   Watchdog_setReload(watchdogHandle, reloadValue);
 }
 void BJJA_LM_tick_wdt()
@@ -3105,8 +3106,15 @@ bool multi_role_doConnect(uint8_t index)
   GapAdv_disable(advHandle);
 
 #if (DEFAULT_DEV_DISC_BY_SVC_UUID == TRUE)
-  GapInit_connect(scanList[index].addrType & MASK_ADDRTYPE_ID,
-                  scanList[index].addr, mrInitPhy, 0);
+  /*GapInit_connect(scanList[index].addrType & MASK_ADDRTYPE_ID,
+                  scanList[index].addr, mrInitPhy, 0);*/
+  GapInit_connect(gOBDII_dev.addrType & MASK_ADDRTYPE_ID,
+                  gOBDII_dev.addr, mrInitPhy, 0);
+  PRINT_DATA("OBDII dev type:%d,addr:%2x-%2x-%2x-%2x-%2x-%2x\r\n",
+    gOBDII_dev.addrType,gOBDII_dev.addr[0],gOBDII_dev.addr[1],gOBDII_dev.addr[2],gOBDII_dev.addr[3],gOBDII_dev.addr[4],gOBDII_dev.addr[5]);
+  
+  //PRINT_DATA("OBDII dev type:%d,addr:%2x-%2x-%2x-%2x-%2x-%2x\r\n",
+  //  scanList[index].addrType,scanList[index].addr[0],scanList[index].addr[1],scanList[index].addr[2],scanList[index].addr[3],scanList[index].addr[4],scanList[index].addr[5]);
 #else // !DEFAULT_DEV_DISC_BY_SVC_UUID
   GapScan_Evt_AdvRpt_t advRpt;
 
@@ -3495,6 +3503,7 @@ static void BJJA_LM_OBDD_performPeriodicTask(void)
       obdd_timer_flag=0;
     }
   }
+  BJJA_LM_tick_wdt();
 }
 void BJJA_LM_subg_createTask(void)
 {
@@ -3978,9 +3987,10 @@ void BJJA_LM_Working_state_running()
     
     if(gBJJA_LM_Obd_state==O_Discover)
     {
-      multi_role_doDiscoverDevices(0);
-      gConnTimeout_count=0;
-      //gBJJA_LM_Obd_state=O_Connect;
+      //multi_role_doDiscoverDevices(0);
+      //gConnTimeout_count=0;
+      gBJJA_LM_Obd_state=O_Connect;
+      gConnTimeout_count=1;
     }
     else if(gBJJA_LM_Obd_state==O_Connect)
     {
@@ -4383,6 +4393,15 @@ void BJJA_LM_init()
   BJJA_LM_load_default_setting();
   BJJA_LM_read_flash();
   BJJA_LM_read_SR_flash();
+  gOBDII_dev.addrType=1;
+  gOBDII_dev.addr[0] = gFlash_data.obdii_mac[5];
+  gOBDII_dev.addr[1] = gFlash_data.obdii_mac[4];
+  gOBDII_dev.addr[2] = gFlash_data.obdii_mac[3];
+  gOBDII_dev.addr[3] = gFlash_data.obdii_mac[2];
+  gOBDII_dev.addr[4] = gFlash_data.obdii_mac[1];
+  gOBDII_dev.addr[5] = gFlash_data.obdii_mac[0];
+
+
   //BJJA_LM_AES_init();//test ok
   check_ble();
   
