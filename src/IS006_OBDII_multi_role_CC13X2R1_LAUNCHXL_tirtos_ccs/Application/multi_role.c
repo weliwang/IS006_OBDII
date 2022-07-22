@@ -423,7 +423,7 @@ void BJJA_LM_write_SR_flash();
 uint8_t BJJA_ascii2hex(uint8_t val);
 int8_t BJJA_LM_find_OBDII_conn_index();
 void BJJA_LM_disconnect_OBDII();
-
+void BJJA_LM_AES_init();
 enum STATE_MACHINE {Pwr_on,Idle,Arm,Disarm,Working};
 enum OBD_STATE {O_Discover,O_Connect,O_Notify,O_Running,O_Running_Late};
 
@@ -487,6 +487,110 @@ uint8_t gSubgTaskStack[MR_TASK_STACK_SIZE];
  * Add by weli end
  */
 
+/*
+ *  =============================== AES begin===============================
+ */
+
+
+#include <ti/drivers/AESECB.h>
+#include <ti/drivers/cryptoutils/cryptokey/CryptoKeyPlaintext.h>
+uint8_t plaintext[] = {0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96,
+                       0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a,
+                       0xae, 0x2d, 0x8a, 0x57, 0x1e, 0x03, 0xac, 0x9c,
+                       0x9e, 0xb7, 0x6f, 0xac, 0x45, 0xaf, 0x8e, 0x51};
+uint8_t keyingMaterial[16] = {0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+                              0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
+// The plaintext should be the following after the decryption operation:
+// 0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96,
+// 0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a,
+void ecbCallback(AESECB_Handle handle,
+                 int_fast16_t returnValue,
+                 AESECB_Operation *operation,
+                 AESECB_OperationType operationType)
+{
+    if (returnValue != AESECB_STATUS_SUCCESS) {
+        // handle error
+    }
+}
+
+void ecbEncrypt(uint8 *in,uint8 *out,uint8 len) 
+{
+    AESECB_Handle handle;
+    AESECB_Params params;
+    CryptoKey cryptoKey;
+    int_fast16_t decryptionResult;
+    AESECB_Operation operation;
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    AESECB_Params_init(&params);
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    //params.returnBehavior = AESECB_RETURN_BEHAVIOR_CALLBACK;
+    //params.callbackFxn = ecbCallback;
+    handle = AESECB_open(CONFIG_AESECB_0, &params);
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    if (handle == NULL) {
+        // handle error
+      PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    }
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    CryptoKeyPlaintext_initKey(&cryptoKey, keyingMaterial, sizeof(keyingMaterial));
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    AESECB_Operation_init(&operation);
+    operation.key               = &cryptoKey;
+    operation.input             = in;
+    operation.output            = out;
+    operation.inputLength       = len;
+
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    decryptionResult = AESECB_oneStepEncrypt(handle, &operation);
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    if (decryptionResult != AESECB_STATUS_SUCCESS) {
+        // handle error
+      PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    }
+    
+    AESECB_close(handle);
+}
+void ecbDecrypt(uint8 *in,uint8 *out,uint8 len) 
+{
+    AESECB_Handle handle;
+    AESECB_Params params;
+    CryptoKey cryptoKey;
+    int_fast16_t decryptionResult;
+    AESECB_Operation operation;
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    AESECB_Params_init(&params);
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    //params.returnBehavior = AESECB_RETURN_BEHAVIOR_CALLBACK;
+    //params.callbackFxn = ecbCallback;
+    handle = AESECB_open(CONFIG_AESECB_0, &params);
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    if (handle == NULL) {
+        // handle error
+      PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    }
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    CryptoKeyPlaintext_initKey(&cryptoKey, keyingMaterial, sizeof(keyingMaterial));
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    AESECB_Operation_init(&operation);
+    operation.key               = &cryptoKey;
+    operation.input             = in;
+    operation.output            = out;
+    operation.inputLength       = len;
+
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    decryptionResult = AESECB_oneStepDecrypt(handle, &operation);
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    if (decryptionResult != AESECB_STATUS_SUCCESS) {
+        // handle error
+      PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    }
+    AESECB_close(handle);
+}
+
+
+/*
+ *  =============================== AES end===============================
+ */
 
 
 
@@ -4202,7 +4306,7 @@ void BJJA_LM_init()
   BJJA_LM_load_default_setting();
   BJJA_LM_read_flash();
   BJJA_LM_read_SR_flash();
-
+  BJJA_LM_AES_init();
 }
 uint8_t BJJA_ascii2hex(uint8_t val)
 {
@@ -4227,5 +4331,25 @@ void BJJA_LM_disconnect_OBDII()
     PRINT_DATA("OBDII has been offline\r\n");
   }
   gBJJA_LM_Obd_state=O_Discover;
+}
+void BJJA_LM_AES_init()
+{
+  PRINT_DATA("raw data\r\n");
+  for(uint8_t i=0;i<sizeof(plaintext);i++)
+    PRINT_DATA("%02x ",plaintext[i]);
+  PRINT_DATA("\r\n");
+  uint8_t encrypt_data[32]={0x00};
+  uint8_t decrypt_data[32]={0x00};
+  ecbEncrypt(plaintext,encrypt_data,32);
+  PRINT_DATA("encrypt data\r\n");
+  for(uint8_t i=0;i<sizeof(encrypt_data);i++)
+    PRINT_DATA("%02x ",encrypt_data[i]);
+  PRINT_DATA("\r\n");
+  ecbDecrypt(encrypt_data,decrypt_data,32);
+  PRINT_DATA("decrypt data\r\n");
+  for(uint8_t i=0;i<sizeof(decrypt_data);i++)
+    PRINT_DATA("%02x ",decrypt_data[i]);
+  PRINT_DATA("\r\n");
+
 }
 /************************* THIS IS FOR UART2 END ***********************/

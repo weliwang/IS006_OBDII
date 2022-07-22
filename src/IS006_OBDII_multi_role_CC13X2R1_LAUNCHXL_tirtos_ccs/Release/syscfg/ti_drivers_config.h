@@ -71,7 +71,9 @@ extern const uint_least8_t                      CONFIG_AESCTRDRBG_0_CONST;
 
 extern const uint_least8_t                  CONFIG_AESECB0_CONST;
 #define CONFIG_AESECB0                      0
-#define CONFIG_TI_DRIVERS_AESECB_COUNT      1
+extern const uint_least8_t                  CONFIG_AESECB_0_CONST;
+#define CONFIG_AESECB_0                     1
+#define CONFIG_TI_DRIVERS_AESECB_COUNT      2
 
 
 /*

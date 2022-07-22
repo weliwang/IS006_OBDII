@@ -153,13 +153,16 @@ const uint_least8_t AESCTRDRBG_count = CONFIG_AESCTRDRBG_COUNT;
 #include <ti/drivers/AESECB.h>
 #include <ti/drivers/aesecb/AESECBCC26XX.h>
 
-#define CONFIG_AESECB_COUNT 1
+#define CONFIG_AESECB_COUNT 2
 AESECBCC26XX_Object aesecbCC26XXObjects[CONFIG_AESECB_COUNT];
 
 /*
  *  ======== aesecbCC26XXHWAttrs ========
  */
 const AESECBCC26XX_HWAttrs aesecbCC26XXHWAttrs[CONFIG_AESECB_COUNT] = {
+    {
+        .intPriority = (~0),
+    },
     {
         .intPriority = (~0),
     },
@@ -170,10 +173,15 @@ const AESECB_Config AESECB_config[CONFIG_AESECB_COUNT] = {
         .object  = &aesecbCC26XXObjects[CONFIG_AESECB0],
         .hwAttrs = &aesecbCC26XXHWAttrs[CONFIG_AESECB0]
     },
+    {   /* CONFIG_AESECB_0 */
+        .object  = &aesecbCC26XXObjects[CONFIG_AESECB_0],
+        .hwAttrs = &aesecbCC26XXHWAttrs[CONFIG_AESECB_0]
+    },
 };
 
 
 const uint_least8_t CONFIG_AESECB0_CONST = CONFIG_AESECB0;
+const uint_least8_t CONFIG_AESECB_0_CONST = CONFIG_AESECB_0;
 const uint_least8_t AESECB_count = CONFIG_AESECB_COUNT;
 
 /*

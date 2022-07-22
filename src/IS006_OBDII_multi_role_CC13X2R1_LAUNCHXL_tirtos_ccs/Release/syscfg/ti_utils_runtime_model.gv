@@ -63,6 +63,9 @@ digraph Model
     CONFIG_AESECB0 -> ti_drivers_DMA
     CONFIG_AESECB0 -> ti_drivers_Power
     CONFIG_AESECB0 -> ti_drivers_Board
+    CONFIG_AESECB_0 -> ti_drivers_DMA
+    CONFIG_AESECB_0 -> ti_drivers_Power
+    CONFIG_AESECB_0 -> ti_drivers_Board
 
     // mod.$name=/ti/drivers/Board
     ti_drivers_Board -> ti_devices_DriverLib
