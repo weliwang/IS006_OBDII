@@ -424,6 +424,8 @@ uint8_t BJJA_ascii2hex(uint8_t val);
 int8_t BJJA_LM_find_OBDII_conn_index();
 void BJJA_LM_disconnect_OBDII();
 void BJJA_LM_AES_init();
+void GetMacAddress(uint8 *p_Address);
+uint8_t check_ble();
 enum STATE_MACHINE {Pwr_on,Idle,Arm,Disarm,Working};
 enum OBD_STATE {O_Discover,O_Connect,O_Notify,O_Running,O_Running_Late};
 
@@ -442,7 +444,8 @@ uint8_t gWorkingHeartBeat=0x00;
 uint8_t WorkingHeartBeatTimer=10;
 uint8_t gWaitCount=0x00;
 uint8_t gWaitTimer=5;
-
+uint8_t gMac[6]={0x00};
+uint8_t gvalid=0x00;
 
 uint8_t gPairEnable=0;
 uint32_t gServiceUUID=SIMPLEPROFILE_SERV_UUID;
@@ -636,7 +639,8 @@ void BJJA_LM_tick_wdt()
 {
   //UartMessage("tick wdt2\r\n",strlen("tick wdt2\r\n"));
   //return;
-  Watchdog_clear(watchdogHandle);
+  if(gvalid)
+    Watchdog_clear(watchdogHandle);
 }
 /*
  *  =============================== Watchdog end===============================
@@ -3557,6 +3561,16 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
     cansec_doNotify(0);
     PRINT_DATA("OK+NOTI\r\n");
   }
+  else if (strncmp(serialBuffer2,"AT+WSS=",strlen("AT+WSS="))==0)
+  {
+    //AT+WSS=1ac61f99da1696e73d3898eae2b82f43
+    for(uint8_t i=0;i<16;i++)
+    {
+      gFlash_data.sn[i] = (BJJA_ascii2hex(serialBuffer2[(7+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(7+((i*2)+1))]);
+    }
+    PRINT_DATA("OK+WSS\r\n");
+    BJJA_LM_write_flash();
+  }
   else if (strncmp(serialBuffer2,"ATT",strlen("ATT"))==0)
   {
     cansec_Write2Periphearl(0,6,"01A6\r\n");
@@ -4306,7 +4320,93 @@ void BJJA_LM_init()
   BJJA_LM_load_default_setting();
   BJJA_LM_read_flash();
   BJJA_LM_read_SR_flash();
-  BJJA_LM_AES_init();
+  //BJJA_LM_AES_init();//test ok
+  check_ble();
+  
+  PRINT_DATA("MAC=%2x:%2x:%2x:%2x:%2x:%2x\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
+}
+void GetMacAddress(uint8 *p_Address)
+{
+    uint32 Mac0 = HWREG(FCFG1_BASE + FCFG1_O_MAC_BLE_0);
+    uint32 Mac1 = HWREG(FCFG1_BASE + FCFG1_O_MAC_BLE_1);
+
+    p_Address[5] = Mac0;
+    p_Address[4] = Mac0 >> 8;
+    p_Address[3] = Mac0 >> 16;
+    p_Address[2] = Mac0 >> 24;
+    p_Address[1] = Mac1;
+    p_Address[0] = Mac1 >> 8;
+}
+uint8_t check_ble()
+{
+  //PRINT_DATA("-------------\r\n");
+  //for(uint8_t i=0;i<16;i++)
+  //  PRINT_DATA("%2x",gFlash_data.sn[i]);
+  //PRINT_DATA("\r\n");
+  GetMacAddress(gMac);
+  //http://testprotect.com/appendix/AEScalc
+  //cf21513c0d0a1203251220030144ff01//key
+  //fca89beca98afca89beca98aaabbccdd//mac 
+  //decryption:1ac61f99da1696e73d3898eae2b82f43
+  //AT+WSS=1ac61f99da1696e73d3898eae2b82f43
+  uint8_t key[16] = {0xcf, 0x21, 0x51, 0x3c, 0x0d, 0x0a, 0x12, 0x03,
+                              0x25, 0x12, 0x20, 0x03, 0x01, 0x44, 0xff, 0x01};
+  uint8_t out[16]={0x00};
+  AESECB_Handle handle;
+  AESECB_Params params;
+  CryptoKey cryptoKey;
+  int_fast16_t decryptionResult;
+  AESECB_Operation operation;
+  //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  AESECB_Params_init(&params);
+  //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  //params.returnBehavior = AESECB_RETURN_BEHAVIOR_CALLBACK;
+  //params.callbackFxn = ecbCallback;
+  handle = AESECB_open(CONFIG_AESECB_0, &params);
+  //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  if (handle == NULL) {
+      // handle error
+    //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  }
+  //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  CryptoKeyPlaintext_initKey(&cryptoKey, key, sizeof(key));
+  //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  AESECB_Operation_init(&operation);
+  operation.key               = &cryptoKey;
+  operation.input             = gFlash_data.sn;
+  operation.output            = out;
+  operation.inputLength       = sizeof(out);
+
+  //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  decryptionResult = AESECB_oneStepDecrypt(handle, &operation);
+  //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  if (decryptionResult != AESECB_STATUS_SUCCESS) {
+      // handle error
+    //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  }
+  AESECB_close(handle);
+  //for(uint8_t i=0;i<16;i++)
+  //  PRINT_DATA("%2x",out[i]);
+  uint8_t chk_flag=0;
+  for(uint8_t i=0;i<6;i++)
+  {
+    if((gMac[i] == out[i]) &&(out[i] == out[6+i]))
+      chk_flag++;
+  }
+  if(chk_flag>=6)
+  {
+    gvalid=1;
+    PRINT_DATA("OK\r\n");
+
+  }
+  else
+  {
+    PRINT_DATA("##%d#\r\n",chk_flag);
+    gvalid=0;
+  }
+  return gvalid;
+
+   
 }
 uint8_t BJJA_ascii2hex(uint8_t val)
 {
