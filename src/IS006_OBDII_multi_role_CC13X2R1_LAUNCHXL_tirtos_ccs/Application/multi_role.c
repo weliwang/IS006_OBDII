@@ -443,9 +443,10 @@ uint8_t gArm_Disarm_command=0;//set from lte-m or ble command,to notify state ma
 uint8_t gWorkingHeartBeat=0x00;
 uint8_t WorkingHeartBeatTimer=10;
 uint8_t gWaitCount=0x00;
-uint8_t gWaitTimer=5;
+uint8_t gWaitTimer=3;
 uint8_t gMac[6]={0x00};
 uint8_t gvalid=0x00;
+uint8_t gConnTimeout_count=0x00;
 
 uint8_t gPairEnable=0;
 uint32_t gServiceUUID=SIMPLEPROFILE_SERV_UUID;
@@ -1214,7 +1215,7 @@ static void multi_role_processGapMsg(gapEventHdr_t *pMsg)
 #else
 
       uint8_t check_obdii_dev=0x00;
-      for(i=0;i<numConn;i++)
+      for(i=0;i<MAX_NUM_BLE_CONNS;i++)
       {
         if(connList[i].addr[5]==gFlash_data.obdii_mac[0] && 
           connList[i].addr[4]==gFlash_data.obdii_mac[1] &&
@@ -1755,6 +1756,7 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
           //gBJJA_LM_State_machine=2;
           gBJJA_LM_Obd_state=O_Connect;
           gWaitCount=1;
+          gConnTimeout_count=1;
 
         }
       }
@@ -2569,6 +2571,7 @@ static void multi_role_processGATTDiscEvent(gattMsgEvent_t *pMsg)
       //                  MR_ITEM_GATTREAD | MR_ITEM_GATTWRITE, MR_ITEM_NONE);
       gBJJA_LM_Obd_state=O_Notify;
       gWaitCount=1;
+      gConnTimeout_count=1;
     }
 
     connList[connIndex].discState = BLE_DISC_STATE_IDLE;
@@ -3837,6 +3840,7 @@ bool cansec_doNotify(uint8_t index)
     {
       PRINT_DATA("subcribe Notify success\r\n");
       gBJJA_LM_Obd_state=O_Running;
+      gConnTimeout_count=0;
     }
   }
 
@@ -3849,7 +3853,7 @@ bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data)
     index = val;
   else
   {
-    PRINT_DATA("obdii mac not fmount,reconnect\r\n");
+    PRINT_DATA("obdii mac not found,reconnect\r\n");
     BJJA_LM_disconnect_OBDII();
   }
   bStatus_t status = FAILURE;
@@ -3906,7 +3910,7 @@ bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data)
 int8_t BJJA_LM_find_OBDII_conn_index()
 {
   uint8_t ret=-1;
-  for(uint8_t i=0;i<numConn;i++)
+  for(uint8_t i=0;i<MAX_NUM_BLE_CONNS;i++)
   {
     if(connList[i].addr[5]==gFlash_data.obdii_mac[0] && 
       connList[i].addr[4]==gFlash_data.obdii_mac[1] &&
@@ -3927,7 +3931,7 @@ uint8_t BJJA_LM_check_OBDII_is_online()
 {
   uint8_t ret=0x00;
   uint8_t i=0;
-  for(i=0;i<numConn;i++)
+  for(i=0;i<MAX_NUM_BLE_CONNS;i++)
   {
     if(connList[i].addr[5]==gFlash_data.obdii_mac[0] && 
       connList[i].addr[4]==gFlash_data.obdii_mac[1] &&
@@ -3945,13 +3949,14 @@ uint8_t BJJA_LM_check_OBDII_is_online()
 }
 void BJJA_LM_Working_state_running()
 {
-  PRINT_DATA("gBJJA_LM_Obd_state=%d\r\n",gBJJA_LM_Obd_state);
+  PRINT_DATA("gBJJA_LM_Obd_state=%d,gWaitCount:%d,gWaitTimer:%d\r\n",gBJJA_LM_Obd_state,gWaitCount,gWaitTimer);
   if(gACC_ON_timer_flag>=3)
   {
     
     if(gBJJA_LM_Obd_state==O_Discover)
     {
       multi_role_doDiscoverDevices(0);
+      gConnTimeout_count=0;
       //gBJJA_LM_Obd_state=O_Connect;
     }
     else if(gBJJA_LM_Obd_state==O_Connect)
@@ -3967,6 +3972,17 @@ void BJJA_LM_Working_state_running()
         multi_role_doConnect(0);//this is from scanlist,scanlist always is obdii mac address
         //當connect失敗時,怎麼recovery,怎麼reconnect.
         gWaitCount=0;
+      }
+      if(gConnTimeout_count>=1)
+      {
+        gConnTimeout_count++;
+        if(gConnTimeout_count>=30)
+        {
+          PRINT_DATA("connection over 30seconds,reconnect\r\n");
+          BJJA_LM_disconnect_OBDII(); 
+          gConnTimeout_count=0;
+          gBJJA_LM_Obd_state=O_Discover;
+        }
       }
       
     }
@@ -3993,7 +4009,17 @@ void BJJA_LM_Working_state_running()
           PRINT_DATA("not found OBDII device index,roll back to discover\r\n");
           gBJJA_LM_Obd_state=O_Discover;
         }
-        
+      }
+      if(gConnTimeout_count>=1)
+      {
+        gConnTimeout_count++;
+        if(gConnTimeout_count>=30)
+        {
+          PRINT_DATA("notify over 30seconds,reconnect\r\n");
+          BJJA_LM_disconnect_OBDII(); 
+          gConnTimeout_count=0;
+          gBJJA_LM_Obd_state=O_Discover;
+        }
       }
       
     }
@@ -4016,19 +4042,20 @@ void BJJA_LM_Working_state_running()
       ATST96
       0100
       */
+      
       cansec_Write2Periphearl(0,4,"ATZ\r\n");DELAY_US(1000*1000);
-      cansec_Write2Periphearl(0,5,"STI\r\n");DELAY_US(1000*200);
-      cansec_Write2Periphearl(0,4,"TI\r\n");DELAY_US(1000*200);
-      cansec_Write2Periphearl(0,5,"ATD\r\n");DELAY_US(1000*200);
-      cansec_Write2Periphearl(0,6,"ATD0\r\n");DELAY_US(1000*200);
-      cansec_Write2Periphearl(0,6,"ATE0\r\n");DELAY_US(1000*200);
-      cansec_Write2Periphearl(0,7,"ATSP6\r\n");DELAY_US(1000*200);
-      cansec_Write2Periphearl(0,6,"ATH1\r\n");DELAY_US(1000*200);
-      cansec_Write2Periphearl(0,6,"ATM0\r\n");DELAY_US(1000*200);
-      cansec_Write2Periphearl(0,6,"ATS0\r\n");DELAY_US(1000*200);
-      cansec_Write2Periphearl(0,7,"ATAT1\r\n");DELAY_US(1000*200);
-      cansec_Write2Periphearl(0,6,"ATAL\r\n");DELAY_US(1000*200);
-      cansec_Write2Periphearl(0,8,"ATST96\r\n");
+      /*cansec_Write2Periphearl(0,5,"STI\r\n");DELAY_US(1000*400);
+      cansec_Write2Periphearl(0,4,"TI\r\n");DELAY_US(1000*400);
+      cansec_Write2Periphearl(0,5,"ATD\r\n");DELAY_US(1000*400);
+      cansec_Write2Periphearl(0,6,"ATD0\r\n");DELAY_US(1000*400);
+      cansec_Write2Periphearl(0,6,"ATE0\r\n");DELAY_US(1000*400);
+      cansec_Write2Periphearl(0,7,"ATSP6\r\n");DELAY_US(1000*400);
+      cansec_Write2Periphearl(0,6,"ATH1\r\n");DELAY_US(1000*400);
+      cansec_Write2Periphearl(0,6,"ATM0\r\n");DELAY_US(1000*400);
+      cansec_Write2Periphearl(0,6,"ATS0\r\n");DELAY_US(1000*400);
+      cansec_Write2Periphearl(0,7,"ATAT1\r\n");DELAY_US(1000*400);
+      cansec_Write2Periphearl(0,6,"ATAL\r\n");DELAY_US(1000*400);
+      cansec_Write2Periphearl(0,8,"ATST96\r\n");*/
 
       gBJJA_LM_Obd_state=O_Running_Late;
       
@@ -4431,6 +4458,7 @@ void BJJA_LM_disconnect_OBDII()
     PRINT_DATA("OBDII has been offline\r\n");
   }
   gBJJA_LM_Obd_state=O_Discover;
+  gConnTimeout_count=0;
 }
 void BJJA_LM_AES_init()
 {
