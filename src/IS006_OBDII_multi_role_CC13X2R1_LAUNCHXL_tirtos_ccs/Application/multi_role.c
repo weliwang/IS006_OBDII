@@ -120,7 +120,7 @@ Target Device: cc13x2_26x2
 #define MR_EVT_PERIODIC            11
 #define MR_EVT_READ_RPA            12
 #define MR_EVT_INSUFFICIENT_MEM    13
-#define MR_EVT_SUBG_PERIODIC       14//add by weli
+#define MR_EVT_OBDD_PERIODIC       14//add by weli
 #define SBP_UART_INCOMING_EVT      15//add by weli
 #define SBP_UART2_INCOMING_EVT      16//add by weli
 
@@ -401,9 +401,9 @@ static void multi_role_updateRPA(void);
  */
 #define GATT_CLIENT_CFG_NOTIFY                  0x0001 //notify
 #define GATT_CLIENT_CFG_INDICATE                0x0002 //indicate
-#define BJJA_LM_SUBG_EVT_PERIOD               5000
+#define BJJA_LM_OBDD_EVT_PERIOD               100
 void BJJA_LM_subg_early_init();
-static void BJJA_LM_subg_performPeriodicTask(void);
+static void BJJA_LM_OBDD_performPeriodicTask(void);
 void BJJA_LM_subg_semphore_init();
 void BJJA_LM_subg_createTask(void);
 static void BJJA_LM_subg_taskFxn(UArg a0, UArg a1);
@@ -426,11 +426,23 @@ void BJJA_LM_disconnect_OBDII();
 void BJJA_LM_AES_init();
 void GetMacAddress(uint8 *p_Address);
 uint8_t check_ble();
+
+
+#define OBD_MAX_CMD 13
+typedef struct
+{
+  uint8_t timer;
+  uint8_t cmd_name[20];
+  uint8_t cmd_len;
+} OBD2_cmd_t;
+uint8_t OBDII_current_index=0x00;
+OBD2_cmd_t myOBD[OBD_MAX_CMD];
+
 enum STATE_MACHINE {Pwr_on,Idle,Arm,Disarm,Working};
 enum OBD_STATE {O_Discover,O_Connect,O_Notify,O_Running,O_Running_Late};
 
 
-static Clock_Struct BJJA_LM_subG_clkPeriodic;
+static Clock_Struct BJJA_LM_OBDD_clkPeriodic;
 Semaphore_Handle gSem;
 uint8_t gProduceFlag=0x00;
 uint8_t gProduceFlag2=0x00;
@@ -648,9 +660,9 @@ void BJJA_LM_tick_wdt()
  */
 
 
-mrClockEventData_t periodicSubG =
+mrClockEventData_t periodicOBDD =
 {
-  .event = MR_EVT_SUBG_PERIODIC
+  .event = MR_EVT_OBDD_PERIODIC
 };
 
 
@@ -764,9 +776,9 @@ static void multi_role_init(void)
   Util_constructClock(&clkPeriodic, multi_role_clockHandler,
                       MR_PERIODIC_EVT_PERIOD, 0, false,
                       (UArg)&periodicUpdateData);
-  Util_constructClock(&BJJA_LM_subG_clkPeriodic, multi_role_clockHandler,
-                      BJJA_LM_SUBG_EVT_PERIOD, 0, false,
-                      (UArg)&periodicSubG);
+  Util_constructClock(&BJJA_LM_OBDD_clkPeriodic, multi_role_clockHandler,
+                      BJJA_LM_OBDD_EVT_PERIOD, 0, false,
+                      (UArg)&periodicOBDD);
 
   // Init key debouncer
   Board_initKeys(multi_role_keyChangeHandler);
@@ -1900,9 +1912,9 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
       multi_role_performPeriodicTask();
       break;
     }
-    case MR_EVT_SUBG_PERIODIC:
+    case MR_EVT_OBDD_PERIODIC:
     {
-      BJJA_LM_subg_performPeriodicTask();
+      BJJA_LM_OBDD_performPeriodicTask();
       break;
     }
     case SBP_UART_INCOMING_EVT:          //add by weli
@@ -2340,13 +2352,13 @@ static void multi_role_clockHandler(UArg arg)
     // Send message to perform periodic task
     multi_role_enqueueMsg(MR_EVT_PERIODIC, NULL);
   }
-  else if (pData->event == MR_EVT_SUBG_PERIODIC)
+  else if (pData->event == MR_EVT_OBDD_PERIODIC)
   {
     // Start the next period
-    Util_startClock(&BJJA_LM_subG_clkPeriodic);
+    Util_startClock(&BJJA_LM_OBDD_clkPeriodic);
 
     // Send message to perform periodic task
-    multi_role_enqueueMsg(MR_EVT_SUBG_PERIODIC, NULL);
+    multi_role_enqueueMsg(MR_EVT_OBDD_PERIODIC, NULL);
   }
   else if (pData->event == MR_EVT_READ_RPA)
   {
@@ -3448,7 +3460,7 @@ void BJJA_LM_subg_early_init()
   //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
   BJJA_LM_Sub1G_init();
  // Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-end\n", __FUNCTION__);
-  Util_startClock(&BJJA_LM_subG_clkPeriodic);
+  Util_startClock(&BJJA_LM_OBDD_clkPeriodic);
   Util_startClock(&clkPeriodic);//check INGI whether ON
 
   
@@ -3469,11 +3481,20 @@ void BJJA_LM_subg_semphore_init()
   //Semaphore_pend(gSem,BIOS_WAIT_FOREVER); //pending
   //Semaphore_post(gSem);//unlock 
 }
-static void BJJA_LM_subg_performPeriodicTask(void)
+uint8_t obdd_timer_flag=0x00;
+static void BJJA_LM_OBDD_performPeriodicTask(void)
 {
-  return;//remove by weli
-  //Display_printf(dispHandle, MR_ROW_ADVERTIS, 0, "[weli]%s-begin\n", __FUNCTION__);
-  Semaphore_post(gSem);//unlock 
+  if(gBJJA_LM_Obd_state==O_Running && OBDII_current_index<OBD_MAX_CMD)
+  {
+    obdd_timer_flag++;
+    if(obdd_timer_flag%(myOBD[OBDII_current_index].timer+1)==0)
+    {
+      PRINT_DATA(">>>>%d,%s\r\n",myOBD[OBDII_current_index].cmd_len,myOBD[OBDII_current_index].cmd_name);
+      cansec_Write2Periphearl(0,myOBD[OBDII_current_index].cmd_len,myOBD[OBDII_current_index].cmd_name);
+      OBDII_current_index++;
+      obdd_timer_flag=0;
+    }
+  }
 }
 void BJJA_LM_subg_createTask(void)
 {
@@ -3841,6 +3862,7 @@ bool cansec_doNotify(uint8_t index)
       PRINT_DATA("subcribe Notify success\r\n");
       gBJJA_LM_Obd_state=O_Running;
       gConnTimeout_count=0;
+      OBDII_current_index=0;
     }
   }
 
@@ -3947,6 +3969,7 @@ uint8_t BJJA_LM_check_OBDII_is_online()
   }
   return 0;
 }
+uint8_t obd_cmd_flag=0x00;
 void BJJA_LM_Working_state_running()
 {
   PRINT_DATA("gBJJA_LM_Obd_state=%d,gWaitCount:%d,gWaitTimer:%d\r\n",gBJJA_LM_Obd_state,gWaitCount,gWaitTimer);
@@ -4043,8 +4066,8 @@ void BJJA_LM_Working_state_running()
       0100
       */
       
-      cansec_Write2Periphearl(0,4,"ATZ\r\n");DELAY_US(1000*1000);
-      /*cansec_Write2Periphearl(0,5,"STI\r\n");DELAY_US(1000*400);
+      /*cansec_Write2Periphearl(0,4,"ATZ\r\n");DELAY_US(1000*1000);
+      cansec_Write2Periphearl(0,5,"STI\r\n");DELAY_US(1000*400);
       cansec_Write2Periphearl(0,4,"TI\r\n");DELAY_US(1000*400);
       cansec_Write2Periphearl(0,5,"ATD\r\n");DELAY_US(1000*400);
       cansec_Write2Periphearl(0,6,"ATD0\r\n");DELAY_US(1000*400);
@@ -4056,8 +4079,11 @@ void BJJA_LM_Working_state_running()
       cansec_Write2Periphearl(0,7,"ATAT1\r\n");DELAY_US(1000*400);
       cansec_Write2Periphearl(0,6,"ATAL\r\n");DELAY_US(1000*400);
       cansec_Write2Periphearl(0,8,"ATST96\r\n");*/
-
-      gBJJA_LM_Obd_state=O_Running_Late;
+      if(OBDII_current_index>=OBD_MAX_CMD)
+      {
+        gBJJA_LM_Obd_state=O_Running_Late;
+      }
+      
       
     }
     else if(gBJJA_LM_Obd_state==O_Running_Late)
@@ -4066,9 +4092,19 @@ void BJJA_LM_Working_state_running()
       gWorkingHeartBeat++;
       if(gWorkingHeartBeat>=WorkingHeartBeatTimer)//per 10seconds
       {
-        cansec_Write2Periphearl(0,6,"01A6\r\n");
-        DELAY_US(1000*500);//20ms
-        cansec_Write2Periphearl(0,6,"0100\r\n");
+        if(obd_cmd_flag)
+        {
+          cansec_Write2Periphearl(0,6,"01A6\r\n");
+          obd_cmd_flag=0;
+        }
+        else
+        {
+          cansec_Write2Periphearl(0,6,"0100\r\n");  
+          obd_cmd_flag=1;
+        }
+        
+        //DELAY_US(1000*500);//20ms
+        
         PRINT_DATA("Odometer:12345km,fuel level:76%\r\n");
         //todo:weli notify ltem and ble
         gWorkingHeartBeat=0;
@@ -4351,6 +4387,58 @@ void BJJA_LM_init()
   check_ble();
   
   PRINT_DATA("MAC=%2x:%2x:%2x:%2x:%2x:%2x\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
+
+  myOBD[0].timer=10;
+  myOBD[0].cmd_len=5;
+  sprintf(myOBD[0].cmd_name,"ATZ\r\n");
+
+  myOBD[1].timer=10;
+  myOBD[1].cmd_len=5;
+  sprintf(myOBD[1].cmd_name,"STI\r\n");
+
+  myOBD[2].timer=10;
+  myOBD[2].cmd_len=4;
+  sprintf(myOBD[2].cmd_name,"TI\r\n");
+
+  myOBD[3].timer=10;
+  myOBD[3].cmd_len=5;
+  sprintf(myOBD[3].cmd_name,"ATD\r\n");
+
+  myOBD[4].timer=10;
+  myOBD[4].cmd_len=6;
+  sprintf(myOBD[4].cmd_name,"ATD0\r\n");
+
+  myOBD[5].timer=10;
+  myOBD[5].cmd_len=6;
+  sprintf(myOBD[5].cmd_name,"ATE0\r\n");
+
+  myOBD[6].timer=10;
+  myOBD[6].cmd_len=7;
+  sprintf(myOBD[6].cmd_name,"ATSP6\r\n");
+
+  myOBD[7].timer=10;
+  myOBD[7].cmd_len=6;
+  sprintf(myOBD[7].cmd_name,"ATH1\r\n");
+
+  myOBD[8].timer=10;
+  myOBD[8].cmd_len=6;
+  sprintf(myOBD[8].cmd_name,"ATM0\r\n");
+
+  myOBD[9].timer=10;
+  myOBD[9].cmd_len=6;
+  sprintf(myOBD[9].cmd_name,"ATS0\r\n");
+
+  myOBD[10].timer=10;
+  myOBD[10].cmd_len=7;
+  sprintf(myOBD[10].cmd_name,"ATAT1\r\n");
+
+  myOBD[11].timer=10;
+  myOBD[11].cmd_len=6;
+  sprintf(myOBD[11].cmd_name,"ATAL\r\n");
+
+  myOBD[12].timer=10;
+  myOBD[12].cmd_len=8;
+  sprintf(myOBD[12].cmd_name,"ATST96\r\n");
 }
 void GetMacAddress(uint8 *p_Address)
 {
