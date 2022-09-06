@@ -124,13 +124,11 @@ GPIO2.gpioPin.$assign   = "20";
 GPIO2.pinInstance.$name = "CONFIG_PIN_BTN2";
 
 GPIO3.$name             = "CONFIG_INGI";
-GPIO3.pull              = "Pull Up";
 GPIO3.gpioPin.$assign   = "8";
 GPIO3.pinInstance.$name = "CONFIG_PIN_0";
 
 GPIO4.$name             = "CONFIG_DOOR";
-GPIO4.pull              = "Pull Up";
-GPIO4.gpioPin.$assign   = "15";
+GPIO4.gpioPin.$assign   = "11";
 GPIO4.pinInstance.$name = "CONFIG_PIN_1";
 
 NVS1.$name                    = "CONFIG_NVSINTERNAL";
