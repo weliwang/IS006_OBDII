@@ -5,8 +5,8 @@
 #include <string.h>
 #include <icall.h>
 
-#define UART_BUF_LEN    256
-#define Serial_BUF_LEN  256
+#define UART_BUF_LEN    64
+#define Serial_BUF_LEN  64
 //#define SEND_BUF_LEN    70
 void bjja_lm_uart_config();
 void UARTRecvCallback (UART_Handle handle, void *buf, size_t count);
@@ -27,3 +27,4 @@ extern uint8_t gBaudrate;
 extern UART_Handle Uarthandle;
 void add_queue(uint16_t len);
 uint8_t get_queue();
+extern void PRINT_DATA(char *ptr, ...);

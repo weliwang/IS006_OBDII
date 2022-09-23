@@ -13,7 +13,7 @@ struct _DATA_BUF
 {
   uint8_t data[Serial_BUF_LEN];
   uint16_t data_len;
-}Node[10];
+}Node[30];
 uint8_t gCurrentHeader=0x00;
 uint8_t gCurrentTail=0x00;
 uint16_t gSerialLen = 0x00;
@@ -210,7 +210,7 @@ void add_queue(uint16_t len)
     Node[gCurrentHeader].data[i] = mcu_uart_rx_buffer[i];
   }
   gCurrentHeader++;
-  if(gCurrentHeader>=10)
+  if(gCurrentHeader>=30)
   {
     gCurrentHeader=0;
   }
@@ -228,11 +228,13 @@ uint8_t get_queue()
   {
     serialBuffer[i] = Node[gCurrentTail].data[i];
   }
+  //PRINT_DATA("get_quque:%d,len:%d,%s\r\n",gCurrentTail,gSerialLen,serialBuffer);
   gCurrentTail++;
-  if(gCurrentTail>=10)
+  if(gCurrentTail>=30)
   {
     gCurrentTail=0;
   }
+
   return 0;
 }
 

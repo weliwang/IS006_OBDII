@@ -27,6 +27,9 @@ const GPIO1       = GPIO.addInstance();
 const GPIO2       = GPIO.addInstance();
 const GPIO3       = GPIO.addInstance();
 const GPIO4       = GPIO.addInstance();
+const GPIO5       = GPIO.addInstance();
+const GPIO6       = GPIO.addInstance();
+const GPIO7       = GPIO.addInstance();
 const NVS         = scripting.addModule("/ti/drivers/NVS");
 const NVS1        = NVS.addInstance();
 const Power       = scripting.addModule("/ti/drivers/Power");
@@ -130,6 +133,24 @@ GPIO3.pinInstance.$name = "CONFIG_PIN_0";
 GPIO4.$name             = "CONFIG_DOOR";
 GPIO4.gpioPin.$assign   = "11";
 GPIO4.pinInstance.$name = "CONFIG_PIN_1";
+
+GPIO5.mode              = "Output";
+GPIO5.pull              = "Pull Up";
+GPIO5.$name             = "GPIO_3V8_EN";
+GPIO5.gpioPin.$assign   = "16";
+GPIO5.pinInstance.$name = "CONFIG_PIN_4";
+
+GPIO6.$name             = "GPIO_4G_PWR";
+GPIO6.mode              = "Output";
+GPIO6.pull              = "Pull Down";
+GPIO6.gpioPin.$assign   = "14";
+GPIO6.pinInstance.$name = "CONFIG_PIN_5";
+
+GPIO7.$name             = "GPIO_4G_RST";
+GPIO7.mode              = "Output";
+GPIO7.pull              = "Pull Down";
+GPIO7.gpioPin.$assign   = "12";
+GPIO7.pinInstance.$name = "CONFIG_PIN_6";
 
 NVS1.$name                    = "CONFIG_NVSINTERNAL";
 NVS1.internalFlash.$name      = "ti_drivers_nvs_NVSCC26XX0";

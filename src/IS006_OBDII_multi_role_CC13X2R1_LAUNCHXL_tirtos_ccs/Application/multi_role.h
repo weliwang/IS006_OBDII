@@ -77,6 +77,23 @@ extern "C"
 /*
  * Task creation function for the Simple Peripheral.
  */
+
+
+
+
+/**********************************************************************
+ * ADD BY WEILI BEGIN for 4G
+*/
+#define TELCOMM_STATUS_OFFLINE 0
+#define TELCOMM_STATUS_ONLINE 1
+#define TELCOMM_STATUS_CONNECTING 2
+#define TELCOMM_STATUS_4G_NON_DETECTED 3
+#define TELCOMM_STATUS_4G_DETECTED_OK 4
+#define TELCOMM_STATUS_4G_DETECTED_FAIL 5
+#define TELCOMM_STATUS_EARLY_ONLINE 6
+/**********************************************************************
+ * ADD BY WEILI END
+*/
 extern void multi_role_createTask(void);
 extern void BJJA_LM_subg_createTask(void);///add by weli
 extern void Weli_UartChangeCB();//add by weli

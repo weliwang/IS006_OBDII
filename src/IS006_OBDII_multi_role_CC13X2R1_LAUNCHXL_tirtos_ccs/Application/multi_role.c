@@ -217,6 +217,12 @@ typedef struct
   void *pBuf;
 } mrGapAdvEventData_t;
 
+typedef struct 
+{
+  uint8_t data_len;
+  uint8_t pBuf[64];
+} bjja_lm_uart_data_t;
+
 // List element for parameter update and PHY command status lists
 typedef struct
 {
@@ -408,7 +414,7 @@ static void BJJA_LM_OBDD_performPeriodicTask(void);
 void BJJA_LM_subg_semphore_init();
 void BJJA_LM_subg_createTask(void);
 static void BJJA_LM_subg_taskFxn(UArg a0, UArg a1);
-void BJJA_parsing_AT_cmd_send_data();
+void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len);
 void BJJA_parsing_AT_cmd_send_data_UART2();
 uint8_t BJJA_LM_check_INGI();
 uint8_t BJJA_LM_check_DOOR();
@@ -427,8 +433,12 @@ void BJJA_LM_disconnect_OBDII();
 void BJJA_LM_AES_init();
 void GetMacAddress(uint8 *p_Address);
 uint8_t check_ble();
-
-
+static void BJJA_4G_JOIN();
+static void BJJA_mqtt_connect(void);
+void parsing_mqtt_return_cmd(uint8_t *data);
+void BJJA_reconnect_4G();
+void send_mqtt_test_cmd(uint8_t *mylocaldata);
+static void BJJA_LM_4G_HeartBeat();
 #define OBD_MAX_CMD 13
 typedef struct
 {
@@ -474,9 +484,16 @@ enum OBD_STATE gBJJA_LM_Obd_state=O_Discover;
 SubGpairing_data gSubGpairing_data[8];
 BJJM_LM_flash_data gFlash_data;
 
-
-
-
+uint8_t g4GStatus=TELCOMM_STATUS_4G_NON_DETECTED;
+static uint8_t gStopHB=0x00;
+static uint8_t gCsq_val=31;
+int8_t gMQTT_received_flag=0x00;
+uint8_t gAuto_Ping_count=0x00;
+static uint8_t first_4g_flag=0x00;
+uint8_t g4G_cmd_flag=0x00;
+static uint8_t g4G_connection_retry_count=0x00;
+static uint8_t gAutoMode_reconnecting_count=0x00;
+uint16_t g4G_heartbeat=0x00;
 void PRINT_DATA(char *ptr, ...)
 {
   uint8 data[255] = { 0 };
@@ -485,6 +502,18 @@ void PRINT_DATA(char *ptr, ...)
   //vsprintf(data, ptr, ap);
   SystemP_vsnprintf(data, 200, ptr, ap);
   va_end(ap);
+  UartMessage2(data, strlen(data));
+}
+void SEND_LTE_M(char *ptr, ...)
+{
+  uint8 data[255] = { 0 };
+  va_list ap;
+  va_start(ap, ptr);
+  //vsprintf(data, ptr, ap);
+  SystemP_vsnprintf(data, 200, ptr, ap);
+  va_end(ap);
+  UartMessage(data, strlen(data));
+  UartMessage2("Send:", strlen("Send:"));
   UartMessage2(data, strlen(data));
 }
 
@@ -646,7 +675,7 @@ void BJJA_WDT_init()
       /* Error opening Watchdog */
       while (1);
   }
-  uint32_t reloadValue = Watchdog_convertMsToTicks(watchdogHandle, 3000);
+  uint32_t reloadValue = Watchdog_convertMsToTicks(watchdogHandle, 10000);
   Watchdog_setReload(watchdogHandle, reloadValue);
 }
 void BJJA_LM_tick_wdt()
@@ -1920,8 +1949,10 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
     }
     case SBP_UART_INCOMING_EVT:          //add by weli
     {
-        //UartMessage(serialBuffer, gSerialLen);
-        BJJA_parsing_AT_cmd_send_data();
+        //bjja_lm_uart_data_t myData = ((mrClockEventData_t *)pMsg->pData)->data
+        //PRINT_DATA("get data:%s,len:%d\r\n",((bjja_lm_uart_data_t*)pMsg->pData).pBuf,((bjja_lm_uart_data_t*)pMsg->pData).data_len);
+        BJJA_parsing_AT_cmd_send_data(((bjja_lm_uart_data_t*)pMsg->pData)->pBuf,((bjja_lm_uart_data_t*)pMsg->pData)->data_len);
+        //ICall_free(pData);
         break;
     }
     case SBP_UART2_INCOMING_EVT:          //add by weli
@@ -3535,7 +3566,18 @@ void Weli_UartChangeCB()
   {
     if(get_queue()==0)
     {
-      multi_role_enqueueMsg(SBP_UART_INCOMING_EVT,NULL);
+      bjja_lm_uart_data_t *pData = ICall_malloc(sizeof(bjja_lm_uart_data_t));
+      pData->data_len = gSerialLen;
+      //pData->pBuf = serialBuffer
+      uint8_t i=0;
+      for(;i<gSerialLen;i++)
+        pData->pBuf[i] = serialBuffer[i];
+      //PRINT_DATA("trigger get_queue:%d,%s\r\n",gSerialLen,serialBuffer);
+      //multi_role_enqueueMsg(SBP_UART_INCOMING_EVT,NULL);
+      if (multi_role_enqueueMsg(SBP_UART_INCOMING_EVT, pData) != SUCCESS)
+      {
+        ICall_free(pData);
+      }
     }
   }
 }
@@ -3549,17 +3591,190 @@ void clear_uart()
   Weli_UartChangeCB();
 #endif
 }
-void BJJA_parsing_AT_cmd_send_data()
+void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
 {
   gProduceFlag=1;
   //if(gEnableLog)
-    UartMessage(serialBuffer,gSerialLen);
+  //UartMessage("LTE-M>>",7);
+  //UartMessage(serialBuffer,gSerialLen);
+  PRINT_DATA("from LTE-M>>%s\r\n",pBuf);
   /*if(strncmp(serialBuffer,"AT+SKEY=?",strlen("AT+SKEY=?"))==0)
   {
     uint8_t data[24]={0x00};
     sprintf(data,"OK+SKEY=%d\r\n",gPasskey);
     UartMessage(data,strlen(data));
   }*/
+
+  //split token
+  char * pch;
+  //printf ("Splitting string \"%s\" into tokens:\n",str);
+  char *delim = "\n";
+  pch = strtok(pBuf,delim);
+  while (pch != NULL)
+  {
+    //BJJA_write_data_LOG("\r\n>>4G>>",strlen("\r\n>>4G>>"));
+    PRINT_DATA(pch);
+    //BJJA_write_data_LOG("<<4G<<\r\n",strlen("<<4G<<\r\n"));
+    //if(strncmp(gUART4_rx_buffer,"AT+4G_TEST",10)==0)
+    if(strncmp("+CSQ:",pch,5)==0)
+    {
+      char * str_val;
+      char *dot = ",";
+      str_val = strtok(pch+5,dot);
+      if(str_val!=NULL)
+      {
+        gCsq_val = atoi(str_val);
+        PRINT_DATA("CSQ:%d\r\n",gCsq_val);
+      }
+    }
+    else if(strncmp("+QMTOPEN: 0,0",pch,strlen("+QMTOPEN: 0,0"))==0)//AT+QMTOPEN OK
+    {
+      PRINT_DATA("MQTT early init OK\r\n");
+      SEND_LTE_M("AT+QMTCONN=0,\"%02x%02x%02x%02x%02x%02x\"\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
+    }
+    else if(strncmp("+QMTCONN: 0,0,0",pch,strlen("+QMTCONN: 0,0,0"))==0)//AT+QMTOPEN OK
+    {
+      PRINT_DATA("MQTT Init OK,change Status:TELCOMM_STATUS_ONLINE\r\n");
+      SEND_LTE_M("AT+QMTSUB=0,1,\"/AVIS/%02x%02x%02x%02x%02x%02x/downlink\",0\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
+      g4GStatus = TELCOMM_STATUS_ONLINE;//direct online
+    }
+    else if(strncmp("+CREG: ",pch,strlen("+CREG: "))==0)//AT+CREG
+    {
+      if(pch[9]=='1' || pch[9]=='5')
+      {
+        if(g4GStatus == TELCOMM_STATUS_4G_DETECTED_OK)
+        {
+            PRINT_DATA("change to early online\r\n");
+            g4GStatus = TELCOMM_STATUS_EARLY_ONLINE;
+        }
+        else
+        {
+          PRINT_DATA("4G get operator OK\r\n");
+        }
+        
+      }
+      else
+      {
+        g4GStatus = TELCOMM_STATUS_OFFLINE;
+        PRINT_DATA("4G get operator fail todo action\r\n");
+      }
+      
+    }
+    else if(strncmp("+CME ERROR: 13",pch,strlen("+CME ERROR: 13"))==0)//AT+CCID
+    {
+      g4GStatus = TELCOMM_STATUS_4G_DETECTED_FAIL;
+      PRINT_DATA("SIM detected FAIL\r\n");
+    }
+    else if(strncmp("+CCID:",pch,strlen("+CCID:"))==0)//AT+CCID
+    {
+      g4GStatus = TELCOMM_STATUS_4G_DETECTED_OK;
+      PRINT_DATA("SIM detected OK\r\n");
+    }
+    /*else if(strncmp("+QIACT:",pch,strlen("+QIACT:"))==0)//AT+QIACT
+    {
+      //gAutoMode_reconnecting_count=0;//reset auto mode max retry count
+      if(g4GStatus==TELCOMM_STATUS_ONLINE)
+      {
+        PRINT_DATA("already state machine is ONLINE\r\n");
+      }
+      else
+      {
+        PRINT_DATA("change to early online\r\n");
+        g4GStatus = TELCOMM_STATUS_EARLY_ONLINE;
+      }
+      PRINT_DATA("4G get PDP OK\r\n");
+      gPDP_waiting_count=0;
+    }*/
+    else if(strncmp("+QPING: 561",pch,strlen("+QPING: 561"))==0)//AT+QPING fail
+    {
+      PRINT_DATA("4G ping fail now is offline\r\n");
+      //+QPING: 561
+      g4GStatus = TELCOMM_STATUS_OFFLINE;
+    }
+    else if(strncmp("+QMTPUBEX: 1,0,0",pch,strlen("+QMTPUBEX: 1,0,0"))==0)
+    {
+      //gLED_Auto_off=0;//clear turn off led blue flag ,so led blue will keep on
+      //gMQTT_received_flag--;
+      PRINT_DATA("received MQTT OK message\r\n");
+      gAutoMode_reconnecting_count=0;//reset auto mode max retry count
+    }
+    else if(strncmp("ERROR",pch,strlen("ERROR"))==0)//for fix issue 388
+    {
+      gMQTT_received_flag=10;
+    }
+    else if(strncmp("+QMTSTAT: 1,1",pch,13)==0)
+    {
+      PRINT_DATA("detected mqtt offline reconnect");
+      BJJA_mqtt_connect();//if return +QMTSTAT: 1,1 restart mqtt_connet
+      //HAL_NVIC_SystemReset();
+    }
+    else if(strncmp("+QMTRECV:",pch,9)==0)
+    {
+      //[Weli]received data:+QMTRECV: 1,0,"/flow4g/867160044718165/downlink/","12345678901234567890"
+      //sprintf(gLogTmp,"[Weli]received data:%s\r\n",pch);
+      //BJJA_write_data_LOG(gLogTmp,strlen(gLogTmp));
+      char * sub_token;
+      //printf ("Splitting string \"%s\" into tokens:\n",str);
+      char *delim_split = "\"";
+      sub_token = strtok(pch,delim_split);
+      uint8_t my_test_count=0;
+      while (sub_token != NULL)
+      {
+        sub_token = strtok(NULL,delim_split);
+        if(my_test_count==2)
+        {
+          //sprintf(gLogTmp,"[Weli]split %d:%s\r\n",my_test_count,sub_token);
+          //BJJA_write_data_LOG(gLogTmp,strlen(gLogTmp));
+          parsing_mqtt_return_cmd(sub_token);
+          break;
+        }
+        my_test_count++;
+      }
+    }
+    pch = strtok(NULL,delim);
+  }
+  //if(gCsq_val>11)
+  if(g4GStatus==TELCOMM_STATUS_EARLY_ONLINE)
+  {
+    g4G_connection_retry_count=0;
+    if(first_4g_flag==0/* && gIMEI[0]!=0*/)
+    {
+      first_4g_flag=1;
+      BJJA_mqtt_connect();
+    }
+
+  }
+  
+  //memset(gUART2_rx_buffer,0x00,sizeof(gUART2_rx_buffer));
+  //gUART2_index=0;
+  g4G_cmd_flag=0;
+  if(g4G_connection_retry_count>=200)
+  {
+    g4GStatus = TELCOMM_STATUS_OFFLINE;
+    PRINT_DATA("4G connection fail\r\n");
+  }
+  if(g4G_connection_retry_count>=1)
+    g4G_connection_retry_count++;
+  if(gCsq_val>=99)
+  {
+    //g4GStatus = TELCOMM_STATUS_OFFLINE;
+    PRINT_DATA("4G CSQ value too weak\r\n");
+  }
+
+  /*if(g4GStatus==TELCOMM_STATUS_CONNECTING && gPDP_waiting_count>0)//when get PDP over 30 seconds,re connect 4G modem
+  {
+    gPDP_waiting_count++;
+    if(gPDP_waiting_count>=5)
+    {
+      gPDP_waiting_count=0;
+      BJJA_reconnect_4G();
+      PRINT_DATA("gPDP_waiting_count>=5\r\n");
+    }
+    
+  }*/
+  PRINT_DATA("\r\n[Weli]gMQTT_received_flag:[%d]\r\n",gMQTT_received_flag);
+  memset(pBuf,0x00,sizeof(pBuf));
+
   clear_uart();
 }
 /*************************THIS IS FOR UART2 BEGIN***********************/
@@ -3778,12 +3993,29 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
         PRINT_DATA("OK+SR\r\n");
         BJJA_LM_write_SR_flash();
       }
-      
+    
     }
     else
     {
       PRINT_DATA("FAIL+SR\r\n");
     }
+  }
+  else if (strncmp(serialBuffer2,"AT+4G=",strlen("AT+4G="))==0)
+  {
+    PRINT_DATA("Send to 4G:[%s]\r\n",serialBuffer2+6);
+    UartMessage(serialBuffer2+6,gSerialLen2-6);
+  }
+  else if (strncmp(serialBuffer2,"AT+NWMSG",strlen("AT+NWMSG"))==0)
+  {
+    UartMessage("AT+QMTPUB=0,0,0,0,\"topic/pub\",5\r\n",strlen("AT+QMTPUB=0,0,0,0,\"topic/pub\",5\r\n"));
+    DELAY_US(300*1000);
+    UartMessage("12345",strlen("12345"));
+  }
+  else if (strncmp(serialBuffer2,"AT+NWTEST",strlen("AT+NWTEST"))==0)
+  {
+    UartMessage("AT+QMTOPEN=0,\"mqtt.eclipseprojects.io\",1883\r\n",strlen("AT+QMTOPEN=0,\"mqtt.eclipseprojects.io\",1883\r\n"));
+    DELAY_US(1000*1000);
+    UartMessage("AT+QMTCONN=0,\"AAMMYYbbccd1234567890\"\r\n",strlen("AT+QMTCONN=0,\"aabbccd1234567890\"\r\n"));
   }
   //if(g_IsConnected)
   else
@@ -4247,7 +4479,8 @@ void BJJA_LM_state_machine_heart_beat()
       gACC_ON_timer_flag++;
 
     // run do scan OBDII
-    UartMessage2("acc on ",strlen("acc on ")); 
+    //UartMessage2("acc on ",strlen("acc on ")); //weli mark
+    
     /*if(gBJJA_LM_State_machine==0)//if acc on,connect to dbdii
     {
       gBJJA_LM_State_machine=1;
@@ -4257,9 +4490,9 @@ void BJJA_LM_state_machine_heart_beat()
   else
   {
     gACC_ON_timer_flag=0;
-    UartMessage2("acc off ",strlen("acc off ")); 
+    //UartMessage2("acc off ",strlen("acc off ")); //weli mark
   }
-
+#if 0
   if(BJJA_LM_check_DOOR()==1)
   {
     // run do scan OBDII
@@ -4289,7 +4522,7 @@ void BJJA_LM_state_machine_heart_beat()
       break;
   }
   PRINT_DATA(" gArm_Disarm_command:%d gACC_ON_timer_flag:%d\r\n",gArm_Disarm_command,gACC_ON_timer_flag);
-
+#endif
   if(gBJJA_LM_State_machine==Idle)
   {
     BJJA_LM_Entry_DisArm_state();
@@ -4324,7 +4557,7 @@ void BJJA_LM_state_machine_heart_beat()
     PRINT_DATA("doconnect\r\n");
     multi_role_doConnect(0);
   }*/
-
+  BJJA_LM_4G_HeartBeat();
 
 }
 void BJJA_LM_read_flash()
@@ -4385,10 +4618,10 @@ void BJJA_LM_init()
 {
   BJJA_WDT_init();
   Board_initUser();
-  UartMessage("Hello world\r\n",strlen("Hello world\r\n"));
+  //UartMessage("Hello world\r\n",strlen("Hello world\r\n"));
 
   Board_initUser2();
-  UartMessage2("THIS IS UART2 Hello world\r\n",strlen("THIS IS UART2 Hello world\r\n"));
+  PRINT_DATA("Ver:v1.0.0,Build Time:%s\r\n"__DATE__);
 
   BJJA_LM_load_default_setting();
   BJJA_LM_read_flash();
@@ -4406,6 +4639,37 @@ void BJJA_LM_init()
   check_ble();
   
   PRINT_DATA("MAC=%2x:%2x:%2x:%2x:%2x:%2x\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
+
+  GPIO_write(GPIO_3V8_EN,1);
+  PRINT_DATA("Enable 3V8\r\n");
+  DELAY_US(1000*100);
+
+  GPIO_write(GPIO_4G_PWR,1);
+  DELAY_US(1000*100);
+  GPIO_write(GPIO_4G_PWR,0);
+  DELAY_US(1000*300);
+  GPIO_write(GPIO_4G_RST,1);
+  DELAY_US(1000*100);
+  GPIO_write(GPIO_4G_RST,0);
+  PRINT_DATA("Enable LTE-M module\r\n");
+
+  /*UartMessage("AT\r\n",4);
+  DELAY_US(1000*100);
+  UartMessage("AT\r\n",4);
+  DELAY_US(1000*100);
+  UartMessage("AT\r\n",4);
+  DELAY_US(1000*100);
+  UartMessage("AT\r\n",4);
+  DELAY_US(1000*100);
+  UartMessage("AT\r\n",4);
+  DELAY_US(1000*100);
+  UartMessage("AT\r\n",4);
+  DELAY_US(1000*100);*/
+
+
+  //BJJA_4G_JOIN();
+
+
 
   myOBD[0].timer=10;
   myOBD[0].cmd_len=5;
@@ -4586,5 +4850,118 @@ void BJJA_LM_AES_init()
     PRINT_DATA("%02x ",decrypt_data[i]);
   PRINT_DATA("\r\n");
 
+}
+static void BJJA_LM_4G_HeartBeat()
+{
+  g4G_heartbeat++;
+  if(g4G_heartbeat>=5 && g4GStatus!=TELCOMM_STATUS_ONLINE)
+  {
+    PRINT_DATA("4G quick heartbeat\r\n");
+    BJJA_4G_JOIN();
+    g4G_heartbeat=0;
+  }
+  else if(g4G_heartbeat>=10)//per 10s tick again
+  {
+    PRINT_DATA("4G normal heartbeat\r\n");
+    BJJA_4G_JOIN();
+    g4G_heartbeat=0;
+  }
+}
+static void BJJA_4G_JOIN()
+{
+  if(gStopHB)
+  {
+    PRINT_DATA("4G skip heartbeat\r\n");
+    return;
+  }
+  if(TELCOMM_STATUS_4G_NON_DETECTED==g4GStatus)
+  {
+    PRINT_DATA("4G SIM card detecting\r\n");
+    UartMessage("AT+CCID\r\n",strlen("AT+CCID\r\n"));
+    DELAY_US(10*1000);
+  }
+  /*else if(TELCOMM_STATUS_4G_DETECTED_FAIL==g4GStatus)
+  {
+    BJJA_write_data_LOG("4G SIM card detecting\r\n",strlen("4G SIM card detecting\r\n"));
+    HAL_UART_Transmit(&huart2,"AT+CCID\r\n",strlen("AT+CCID\r\n"),100);
+    HAL_Delay(10);
+  }*/
+  /*else if(g4GStatus==TELCOMM_STATUS_4G_DETECTED_OPERATOR_OK)
+  {
+    HAL_UART_Transmit(&huart2,"AT+QIACT=1\r\n",strlen("AT+QIACT=1\r\n"),100);
+    BJJA_write_data_LOG("AT+QIACT=1\r\n",strlen("AT+QIACT=1\r\n"));
+    g4GStatus=TELCOMM_STATUS_CONNECTING;
+
+  }*/
+  else if(g4GStatus==TELCOMM_STATUS_4G_DETECTED_OK || g4GStatus==TELCOMM_STATUS_ONLINE ||g4GStatus==TELCOMM_STATUS_CONNECTING || g4GStatus == TELCOMM_STATUS_EARLY_ONLINE)
+  {
+    //parsing_4G_return_data();
+    
+    //if(g4GStatus == TELCOMM_STATUS_EARLY_ONLINE)//weli mark
+    if(g4GStatus == TELCOMM_STATUS_ONLINE)
+      send_mqtt_test_cmd("AT+PING\r\n");
+    PRINT_DATA("4G heartbeat\r\n");
+    /*UartMessage("AT+GSN\r\n",strlen("AT+GSN\r\n"));
+    PRINT_DATA("AT+GSN\r\n");
+    DELAY_US(50*1000);BJJA_LM_tick_wdt();*/
+    UartMessage("AT+CREG?\r\n",strlen("AT+CREG?\r\n"));
+    PRINT_DATA("AT+CREG?\r\n");
+    DELAY_US(50*1000);BJJA_LM_tick_wdt();
+    /*UartMessage("AT+QIACT?\r\n",strlen("AT+QIACT?\r\n"));
+    PRINT_DATA("AT+QIACT?\r\n");
+    DELAY_US(50*1000);BJJA_LM_tick_wdt();*/
+    UartMessage("AT+CSQ\r\n",strlen("AT+CSQ\r\n"));
+    PRINT_DATA("AT+CSQ\r\n");
+    
+    PRINT_DATA("4G heartbeat done\r\n");
+  }
+  else if(g4GStatus == TELCOMM_STATUS_OFFLINE)
+  {
+    PRINT_DATA("reconnect 4G from heartbeat\r\n");
+    BJJA_reconnect_4G();
+  }
+  if(g4GStatus==TELCOMM_STATUS_ONLINE)
+  {
+    UartMessage("AT+QPING=1,\"8.8.8.8\"\r\n",strlen("AT+QPING=1,\"www.baidu.com\"\r\n"));
+    DELAY_US(10*1000);DELAY_US(10*1000);
+  }
+  PRINT_DATA("4G current state machine:%d\r\n",g4GStatus);
+}
+void BJJA_reconnect_4G()
+{
+  gAuto_Ping_count=0x00;
+  gMQTT_received_flag=0;
+  g4G_connection_retry_count=1;
+  g4GStatus = TELCOMM_STATUS_4G_NON_DETECTED;
+  UartMessage("AT+CFUN=1,1\r\n",strlen("AT+CFUN=1,1\r\n"));
+  //HAL_Delay(1000*10);//wait for 4G init
+  uint8_t i=0;
+  for(i=0;i<10;i++)
+  {
+    BJJA_LM_tick_wdt();
+    DELAY_US(1000*1000);
+  }
+  
+  PRINT_DATA("reconnect 4G module\r\n");
+  first_4g_flag=0;
+  gCsq_val=31;
+}
+
+static void BJJA_mqtt_connect()
+{
+  PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
+  SEND_LTE_M("AT+QMTOPEN=0,\"%s\",%d\r\n","mqtt.eclipseprojects.io",1883);
+  
+}
+void parsing_mqtt_return_cmd(uint8_t *data)
+{
+  PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
+}
+void send_mqtt_test_cmd(uint8_t *mylocaldata)
+{
+  PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
+  SEND_LTE_M("AT+QMTPUB=0,0,0,0,\"/AVIS/%02x%02x%02x%02x%02x%02x/uplink\",%d\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5],strlen(mylocaldata));
+  DELAY_US(30*1000);
+  SEND_LTE_M("%s",mylocaldata);
 }
 /************************* THIS IS FOR UART2 END ***********************/

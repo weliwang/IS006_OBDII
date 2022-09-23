@@ -85,6 +85,9 @@ digraph Model
     CONFIG_GPIO_BTN2 -> CONFIG_PIN_BTN2
     CONFIG_INGI -> CONFIG_PIN_0
     CONFIG_DOOR -> CONFIG_PIN_1
+    GPIO_3V8_EN -> CONFIG_PIN_4
+    GPIO_4G_PWR -> CONFIG_PIN_5
+    GPIO_4G_RST -> CONFIG_PIN_6
 
     // mod.$name=/ti/drivers/NVS
     CONFIG_NVSINTERNAL -> ti_drivers_Board
