@@ -421,6 +421,7 @@ uint8_t BJJA_LM_check_DOOR();
 bool cansec_doNotify(uint8_t index);
 bool cansec_Write2Periphearl(uint8_t index,uint16_t len,char *data);
 void BJJA_LM_state_machine_heart_beat();
+void BJJA_LM_1S_worker();
 void BJJA_LM_read_flash();
 void BJJA_LM_write_flash();
 void BJJA_LM_load_default_setting();
@@ -2332,6 +2333,8 @@ static void multi_role_performPeriodicTask(void)
 #endif
   //GPIO_write(CONFIG_INGI,0);
   BJJA_LM_state_machine_heart_beat();
+  BJJA_LM_1S_worker();
+
 
   Util_startClock(&clkPeriodic);
   
@@ -4005,17 +4008,51 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
     PRINT_DATA("Send to 4G:[%s]\r\n",serialBuffer2+6);
     UartMessage(serialBuffer2+6,gSerialLen2-6);
   }
-  else if (strncmp(serialBuffer2,"AT+NWMSG",strlen("AT+NWMSG"))==0)
+  else if(strncmp(serialBuffer2,"AT+4G_MQTT_PORT=?",strlen("AT+4G_MQTT_PORT=?"))==0)
   {
-    UartMessage("AT+QMTPUB=0,0,0,0,\"topic/pub\",5\r\n",strlen("AT+QMTPUB=0,0,0,0,\"topic/pub\",5\r\n"));
-    DELAY_US(300*1000);
-    UartMessage("12345",strlen("12345"));
+    PRINT_DATA("OK+4G_MQTT_PORT:%d\r\n",gFlash_data.mqtt_port);
   }
-  else if (strncmp(serialBuffer2,"AT+NWTEST",strlen("AT+NWTEST"))==0)
+  else if(strncmp(serialBuffer2,"AT+4G_MQTT_PORT=",strlen("AT+4G_MQTT_PORT="))==0)
   {
-    UartMessage("AT+QMTOPEN=0,\"mqtt.eclipseprojects.io\",1883\r\n",strlen("AT+QMTOPEN=0,\"mqtt.eclipseprojects.io\",1883\r\n"));
-    DELAY_US(1000*1000);
-    UartMessage("AT+QMTCONN=0,\"AAMMYYbbccd1234567890\"\r\n",strlen("AT+QMTCONN=0,\"aabbccd1234567890\"\r\n"));
+    //split token
+    char * pch;
+    //printf ("Splitting string \"%s\" into tokens:\n",str);
+    char *delim = "=";
+    pch = strtok(serialBuffer2,delim);
+    if (pch != NULL)
+    {
+      pch = strtok(NULL,delim);
+      gFlash_data.mqtt_port = atoi(pch);
+      BJJA_LM_write_flash();
+      PRINT_DATA("OK+4G_MQTT_PORT\r\n");
+    }
+    else
+    {
+      PRINT_DATA("FAIL+4G_MQTT_PORT\r\n");
+    }
+  }
+  else if(strncmp(serialBuffer2,"AT+4G_MQTT_URL=?",strlen("AT+4G_MQTT_URL=?"))==0)
+  {
+    PRINT_DATA("OK+4G_MQTT_URL:%s\r\n",gFlash_data.mqtt_url);
+  }
+  else if(strncmp(serialBuffer2,"AT+4G_MQTT_URL=",strlen("AT+4G_MQTT_URL="))==0)
+  {
+    //split token
+    char * pch;
+    //printf ("Splitting string \"%s\" into tokens:\n",str);
+    char *delim = "=";
+    pch = strtok(serialBuffer2,delim);
+    if (pch != NULL)
+    {
+      pch = strtok(NULL,delim);
+      
+      sprintf(gFlash_data.mqtt_url,"%s",pch);
+      PRINT_DATA("OK+4G_MQTT_URL\r\n");
+    }
+    else
+    {
+      PRINT_DATA("FAIL+4G_MQTT_URL\r\n");
+    }
   }
   //if(g_IsConnected)
   else
@@ -4589,6 +4626,13 @@ void BJJA_LM_load_default_setting()
     gFlash_data.sign[2]='Y';
     gFlash_data.last_statemachine=Idle;
     gFlash_data.periodic_timer=30;
+
+
+    gFlash_data.mqtt_port=1883;
+    sprintf(gFlash_data.mqtt_url,"%s","mqtt.eclipseprojects.io");
+    gFlash_data.mqtt_authority=0;
+    sprintf(gFlash_data.mqtt_user,"%s","foo");
+    sprintf(gFlash_data.mqtt_passwd,"%s","bar");
     //write save data end in here
     //osal_snv_write(SNV_ID_BJJA_FLASH, BUF_OF_BJJA_SAVE_LEN, (uint8 *)data);
     osal_snv_write(SNV_ID_BJJA_FLASH, sizeof(gFlash_data),&gFlash_data);
@@ -4621,7 +4665,7 @@ void BJJA_LM_init()
   //UartMessage("Hello world\r\n",strlen("Hello world\r\n"));
 
   Board_initUser2();
-  PRINT_DATA("Ver:v1.0.0,Build Time:%s\r\n"__DATE__);
+  PRINT_DATA("Ver:v1.0.0,Build Time:%s\r\n"__TIME__);
 
   BJJA_LM_load_default_setting();
   BJJA_LM_read_flash();
@@ -4638,7 +4682,7 @@ void BJJA_LM_init()
   //BJJA_LM_AES_init();//test ok
   check_ble();
   
-  PRINT_DATA("MAC=%2x:%2x:%2x:%2x:%2x:%2x\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
+  PRINT_DATA("MAC=%02x:%02x:%02x:%02x:%02x:%02x\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
 
   GPIO_write(GPIO_3V8_EN,1);
   PRINT_DATA("Enable 3V8\r\n");
@@ -4898,8 +4942,8 @@ static void BJJA_4G_JOIN()
     //parsing_4G_return_data();
     
     //if(g4GStatus == TELCOMM_STATUS_EARLY_ONLINE)//weli mark
-    if(g4GStatus == TELCOMM_STATUS_ONLINE)
-      send_mqtt_test_cmd("AT+PING\r\n");
+    //if(g4GStatus == TELCOMM_STATUS_ONLINE)
+    //  send_mqtt_test_cmd("AT+PING\r\n");
     PRINT_DATA("4G heartbeat\r\n");
     /*UartMessage("AT+GSN\r\n",strlen("AT+GSN\r\n"));
     PRINT_DATA("AT+GSN\r\n");
@@ -4950,7 +4994,7 @@ void BJJA_reconnect_4G()
 static void BJJA_mqtt_connect()
 {
   PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
-  SEND_LTE_M("AT+QMTOPEN=0,\"%s\",%d\r\n","mqtt.eclipseprojects.io",1883);
+  SEND_LTE_M("AT+QMTOPEN=0,\"%s\",%d\r\n",gFlash_data.mqtt_url,gFlash_data.mqtt_port);
   
 }
 void parsing_mqtt_return_cmd(uint8_t *data)
@@ -4963,5 +5007,23 @@ void send_mqtt_test_cmd(uint8_t *mylocaldata)
   SEND_LTE_M("AT+QMTPUB=0,0,0,0,\"/AVIS/%02x%02x%02x%02x%02x%02x/uplink\",%d\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5],strlen(mylocaldata));
   DELAY_US(30*1000);
   SEND_LTE_M("%s",mylocaldata);
+}
+uint16_t gTimer_count_for_periodic_upload=0x00;
+void BJJA_LM_1S_worker()
+{
+  
+  if(gTimer_count_for_periodic_upload>gFlash_data.periodic_timer)
+  {
+    if(g4GStatus == TELCOMM_STATUS_ONLINE)
+    {
+      send_mqtt_test_cmd("WAKEUP\r\n");  
+    }
+    gTimer_count_for_periodic_upload=0;
+  }
+  else
+  {
+    gTimer_count_for_periodic_upload++;
+  }
+
 }
 /************************* THIS IS FOR UART2 END ***********************/
