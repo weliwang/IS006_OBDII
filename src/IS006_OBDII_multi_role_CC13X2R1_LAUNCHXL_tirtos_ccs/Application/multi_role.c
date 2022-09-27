@@ -439,7 +439,13 @@ static void BJJA_mqtt_connect(void);
 void parsing_mqtt_return_cmd(uint8_t *data);
 void BJJA_reconnect_4G();
 void send_mqtt_test_cmd(uint8_t *mylocaldata);
+uint8_t BJJA_LM_read_gps();
+void BJJA_LM_GPS_mode();
+void BJJA_LM_4G_mode();
+void BJJA_LM_enable_gps();
+void BJJA_LM_disable_gps();
 static void BJJA_LM_4G_HeartBeat();
+void BJJA_LM_4G_early_init();
 #define OBD_MAX_CMD 13
 typedef struct
 {
@@ -449,7 +455,8 @@ typedef struct
 } OBD2_cmd_t;
 uint8_t OBDII_current_index=0x00;
 OBD2_cmd_t myOBD[OBD_MAX_CMD];
-
+uint8_t gLastGpsLat[64]={0x00};
+uint8_t gLastGpsLat_flag=0x00;
 enum STATE_MACHINE {Pwr_on,Idle,Arm,Disarm,Working};
 enum OBD_STATE {O_Discover,O_Connect,O_Notify,O_Running,O_Running_Late};
 
@@ -3663,6 +3670,40 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
       }
       
     }
+    else if(strncmp("+QGPSLOC: ",pch,strlen("+QGPSLOC: "))==0)//GPS LAT
+    {
+      gLastGpsLat_flag=0;
+      //todo
+      uint8_t gps_string_1[32]={0x00};
+      uint8_t gps_string_2[32]={0x00};
+
+      char * str_val;
+      char *dot = ",";
+      str_val = strtok(pch,dot);
+      if(str_val!=NULL)
+      {
+        str_val = strtok(NULL,dot);
+        if(str_val!=NULL)
+        {
+          sprintf(gps_string_1,"%s",str_val);
+          str_val = strtok(NULL,dot);
+          if(str_val!=NULL)
+          {
+            sprintf(gps_string_2,"%s",str_val);
+            PRINT_DATA("get gps data:%s,%s\r\n",gps_string_1,gps_string_2);
+            sprintf(gLastGpsLat,"%s,%s",gps_string_1,gps_string_2);
+          } 
+        }
+      }
+    }
+    else if(strncmp("+CME ERROR: 505",pch,strlen("+CME ERROR: 505"))==0)//NO GPS
+    {
+      sprintf(gLastGpsLat,"ERR:GPS_NOT_ENABLE\r\n");
+    }
+    else if(strncmp("+CME ERROR: 516",pch,strlen("+CME ERROR: 516"))==0)//NO GPS
+    {
+      sprintf(gLastGpsLat,"ERR:GPS_NOT_FIXED\r\n");
+    }
     else if(strncmp("+CME ERROR: 13",pch,strlen("+CME ERROR: 13"))==0)//AT+CCID
     {
       g4GStatus = TELCOMM_STATUS_4G_DETECTED_FAIL;
@@ -4710,7 +4751,7 @@ void BJJA_LM_init()
   UartMessage("AT\r\n",4);
   DELAY_US(1000*100);*/
 
-
+  //BJJA_LM_4G_early_init();
   //BJJA_4G_JOIN();
 
 
@@ -4904,15 +4945,17 @@ static void BJJA_LM_4G_HeartBeat()
     BJJA_4G_JOIN();
     g4G_heartbeat=0;
   }
-  else if(g4G_heartbeat>=10)//per 10s tick again
+  else if(g4G_heartbeat>=10/*10*/)//per 10s tick again
   {
     PRINT_DATA("4G normal heartbeat\r\n");
     BJJA_4G_JOIN();
     g4G_heartbeat=0;
   }
 }
+uint8_t gPING_count=0;
 static void BJJA_4G_JOIN()
 {
+  //return;//debug mode
   if(gStopHB)
   {
     PRINT_DATA("4G skip heartbeat\r\n");
@@ -4920,6 +4963,8 @@ static void BJJA_4G_JOIN()
   }
   if(TELCOMM_STATUS_4G_NON_DETECTED==g4GStatus)
   {
+    BJJA_LM_4G_early_init();
+    DELAY_US(30*1000);
     PRINT_DATA("4G SIM card detecting\r\n");
     UartMessage("AT+CCID\r\n",strlen("AT+CCID\r\n"));
     DELAY_US(10*1000);
@@ -4966,8 +5011,15 @@ static void BJJA_4G_JOIN()
   }
   if(g4GStatus==TELCOMM_STATUS_ONLINE)
   {
-    UartMessage("AT+QPING=1,\"8.8.8.8\"\r\n",strlen("AT+QPING=1,\"www.baidu.com\"\r\n"));
-    DELAY_US(10*1000);DELAY_US(10*1000);
+    if(gPING_count>=12)//10seconds*12=120seconds
+    {
+      SEND_LTE_M("AT+QPING=1,\"8.8.8.8\"\r\n");
+      gPING_count=0;
+    }
+    else
+    {
+      gPING_count++;
+    }
   }
   PRINT_DATA("4G current state machine:%d\r\n",g4GStatus);
 }
@@ -5001,12 +5053,69 @@ void parsing_mqtt_return_cmd(uint8_t *data)
 {
   PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
 }
+void BJJA_LM_enable_gps()
+{
+  SEND_LTE_M("AT+QGPS=1\r\n");
+}
+void BJJA_LM_disable_gps()
+{
+  SEND_LTE_M("AT+QGPSEND\r\n");
+}
+void BJJA_LM_4G_mode()
+{
+  SEND_LTE_M("AT+QGPSCFG=\"priority\",1\r\n");//4G mode
+}
+void BJJA_LM_GPS_mode()
+{
+  SEND_LTE_M("AT+QGPSCFG=\"priority\",0\r\n");//gps mode
+}
+uint8_t BJJA_LM_read_gps()
+{
+  BJJA_LM_GPS_mode();
+  //gLastGpsLat
+  gLastGpsLat_flag=1;
+  uint8_t i=0;
+  for(i=0;i<6;i++)
+  {
+    SEND_LTE_M("AT+QGPSLOC=0\r\n");
+    /*if(gLastGpsLat_flag==0)
+      break;
+    */
+    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+  }
+  BJJA_LM_4G_mode();
+  /*if(gLastGpsLat_flag)
+  {
+    sprintf(gLastGpsLat,"NO_GPS\r\n");
+  }*/
+  return gLastGpsLat_flag;
+}
 void send_mqtt_test_cmd(uint8_t *mylocaldata)
 {
   PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
-  SEND_LTE_M("AT+QMTPUB=0,0,0,0,\"/AVIS/%02x%02x%02x%02x%02x%02x/uplink\",%d\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5],strlen(mylocaldata));
+  
+  uint8_t ret = BJJA_LM_read_gps();
+  if(strlen(gLastGpsLat)==0)
+    sprintf(gLastGpsLat,"ERR:GPS_NOT_FIXED\r\n");
+  uint8_t msg[128]={0x00};
+  sprintf(msg,"%s\r\n",gLastGpsLat);
+
+  SEND_LTE_M("AT+QMTPUB=0,0,0,0,\"/AVIS/%02x%02x%02x%02x%02x%02x/uplink\",%d\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5],/*strlen(mylocaldata)*/strlen(gLastGpsLat));
   DELAY_US(30*1000);
-  SEND_LTE_M("%s",mylocaldata);
+  SEND_LTE_M("%s",msg/*mylocaldata*/);
+}
+void BJJA_LM_4G_early_init()
+{
+  
+  PRINT_DATA("4G early_init\r\n");
+  BJJA_LM_4G_mode();
+  BJJA_LM_enable_gps();//todo:test,need remove
+
+
 }
 uint16_t gTimer_count_for_periodic_upload=0x00;
 void BJJA_LM_1S_worker()
@@ -5022,6 +5131,7 @@ void BJJA_LM_1S_worker()
   }
   else
   {
+    
     gTimer_count_for_periodic_upload++;
   }
 
