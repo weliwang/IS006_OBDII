@@ -3583,7 +3583,7 @@ void Weli_UartChangeCB()
       pData->data_len = gSerialLen;
       //pData->pBuf = serialBuffer
       uint8_t i=0;
-      for(;i<gSerialLen;i++)
+      for(i=0;i<gSerialLen;i++)
         pData->pBuf[i] = serialBuffer[i];
       //PRINT_DATA("trigger get_queue:%d,%s\r\n",gSerialLen,serialBuffer);
       //multi_role_enqueueMsg(SBP_UART_INCOMING_EVT,NULL);
@@ -3591,7 +3591,7 @@ void Weli_UartChangeCB()
       {
         ICall_free(pData);
       }
-      for(;i<gSerialLen;i++)
+      for(i=0;i<gSerialLen;i++)
       {
         //if(strncmp("+QGPSLOC: ",pch,strlen("+QGPSLOC: "))==0)//GPS LAT
         if(serialBuffer[i]=='+' && serialBuffer[i+1]=='Q' && serialBuffer[i+2]=='G'
@@ -5131,13 +5131,17 @@ uint8_t BJJA_LM_read_gps()
     SEND_LTE_M("AT+QGPSLOC=0\r\n");
     
     Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+    if(gLastGpsLat_flag==0)
+    {
+      PRINT_DATA("got gps location\r\n");
+      break;
+    }
     Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
     Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
     Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
     Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
     //SEND_LTE_M("AT+QGPSCFG=\"priority\"\r\n");
-    if(gLastGpsLat_flag==0)
-      break;
+
     
   }
   BJJA_LM_4G_mode();
