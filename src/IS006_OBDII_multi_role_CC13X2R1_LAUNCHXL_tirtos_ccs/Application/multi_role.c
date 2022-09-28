@@ -909,7 +909,10 @@ static void multi_role_init(void)
 
 
 }
-
+static void BJJA_LM_main_task_Fxn()
+{
+  
+}
 /*********************************************************************
 * @fn      multi_role_taskFxn
 *
@@ -3588,6 +3591,18 @@ void Weli_UartChangeCB()
       {
         ICall_free(pData);
       }
+      for(;i<gSerialLen;i++)
+      {
+        //if(strncmp("+QGPSLOC: ",pch,strlen("+QGPSLOC: "))==0)//GPS LAT
+        if(serialBuffer[i]=='+' && serialBuffer[i+1]=='Q' && serialBuffer[i+2]=='G'
+          && serialBuffer[i+3]=='P' && serialBuffer[i+4]=='S'
+          && serialBuffer[i+5]=='L' && serialBuffer[i+6]=='O'
+          && serialBuffer[i+7]=='C' && serialBuffer[i+8]==':') 
+          {
+            gLastGpsLat_flag=0;
+          } 
+      }
+      
     }
   }
 }
@@ -3691,7 +3706,28 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
           {
             sprintf(gps_string_2,"%s",str_val);
             PRINT_DATA("get gps data:%s,%s\r\n",gps_string_1,gps_string_2);
-            sprintf(gLastGpsLat,"%s,%s",gps_string_1,gps_string_2);
+            
+            /*uint8_t i=0;
+            for(i=0;i<32;i++)
+            {
+              if(gps_string_1[i]=='N')//2238.3620N
+                gps_string_1[i]=0x00;
+              if(gps_string_2[i]=='E')//12021.4064E
+                gps_string_1[i]=0x00;
+            }
+            float val1 = atof(gps_string_1);
+            float val2 = atof(gps_string_2);
+            int16_t ival1 = val1/100;
+            int16_t ival2 = val2/100;
+            val1 = ((val1-(ival1*100))/60)+ival1;
+            val2 = ((val2-(ival2*100))/60)+ival2;
+            */
+
+
+
+            sprintf(gLastGpsLat,"%s,%s",gps_string_1,gps_string_2);//2238.3620N,12021.4064E
+            //sprintf(gLastGpsLat,"%fN,%fE",val1,val2);//2238.3620N,12021.4064E
+
           } 
         }
       }
@@ -3699,6 +3735,7 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
     else if(strncmp("+CME ERROR: 505",pch,strlen("+CME ERROR: 505"))==0)//NO GPS
     {
       sprintf(gLastGpsLat,"ERR:GPS_NOT_ENABLE\r\n");
+      BJJA_LM_enable_gps();
     }
     else if(strncmp("+CME ERROR: 516",pch,strlen("+CME ERROR: 516"))==0)//NO GPS
     {
@@ -4042,6 +4079,20 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
     else
     {
       PRINT_DATA("FAIL+SR\r\n");
+    }
+  }
+  else if (strncmp(serialBuffer2,"AT+GPS",strlen("AT+GPS"))==0)
+  {
+    BJJA_LM_GPS_mode();
+    while(1)
+    {
+      SEND_LTE_M("AT+QGPSLOC=0\r\n");
+      
+      Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+      Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+      Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+      Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+      Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
     }
   }
   else if (strncmp(serialBuffer2,"AT+4G=",strlen("AT+4G="))==0)
@@ -4557,7 +4608,7 @@ void BJJA_LM_state_machine_heart_beat()
       gACC_ON_timer_flag++;
 
     // run do scan OBDII
-    //UartMessage2("acc on ",strlen("acc on ")); //weli mark
+    UartMessage2("acc on ",strlen("acc on ")); //weli mark
     
     /*if(gBJJA_LM_State_machine==0)//if acc on,connect to dbdii
     {
@@ -4568,9 +4619,9 @@ void BJJA_LM_state_machine_heart_beat()
   else
   {
     gACC_ON_timer_flag=0;
-    //UartMessage2("acc off ",strlen("acc off ")); //weli mark
+    UartMessage2("acc off ",strlen("acc off ")); //weli mark
   }
-#if 0
+#if 1
   if(BJJA_LM_check_DOOR()==1)
   {
     // run do scan OBDII
@@ -4964,7 +5015,7 @@ static void BJJA_4G_JOIN()
   if(TELCOMM_STATUS_4G_NON_DETECTED==g4GStatus)
   {
     BJJA_LM_4G_early_init();
-    DELAY_US(30*1000);
+    DELAY_US(50*1000);
     PRINT_DATA("4G SIM card detecting\r\n");
     UartMessage("AT+CCID\r\n",strlen("AT+CCID\r\n"));
     DELAY_US(10*1000);
@@ -5075,17 +5126,19 @@ uint8_t BJJA_LM_read_gps()
   //gLastGpsLat
   gLastGpsLat_flag=1;
   uint8_t i=0;
-  for(i=0;i<6;i++)
+  for(i=0;i<8;i++)
   {
     SEND_LTE_M("AT+QGPSLOC=0\r\n");
-    /*if(gLastGpsLat_flag==0)
+    
+    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+    //SEND_LTE_M("AT+QGPSCFG=\"priority\"\r\n");
+    if(gLastGpsLat_flag==0)
       break;
-    */
-    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
-    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
-    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
-    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
-    Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
+    
   }
   BJJA_LM_4G_mode();
   /*if(gLastGpsLat_flag)
@@ -5104,7 +5157,7 @@ void send_mqtt_test_cmd(uint8_t *mylocaldata)
   uint8_t msg[128]={0x00};
   sprintf(msg,"%s\r\n",gLastGpsLat);
 
-  SEND_LTE_M("AT+QMTPUB=0,0,0,0,\"/AVIS/%02x%02x%02x%02x%02x%02x/uplink\",%d\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5],/*strlen(mylocaldata)*/strlen(gLastGpsLat));
+  SEND_LTE_M("AT+QMTPUB=0,0,0,0,\"/AVIS/%02x%02x%02x%02x%02x%02x/uplink\",%d\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5],/*strlen(mylocaldata)*/strlen(msg));
   DELAY_US(30*1000);
   SEND_LTE_M("%s",msg/*mylocaldata*/);
 }
@@ -5113,7 +5166,14 @@ void BJJA_LM_4G_early_init()
   
   PRINT_DATA("4G early_init\r\n");
   BJJA_LM_4G_mode();
+  DELAY_US(50*1000);
   BJJA_LM_enable_gps();//todo:test,need remove
+  DELAY_US(50*1000);
+  SEND_LTE_M("AT+QMTCFG=\"keepalive\",0,100\r\n");
+  DELAY_US(50*1000);
+  SEND_LTE_M("AT+QMTCFG=\"timeout\",0,60,2,1\r\n");
+  DELAY_US(50*1000);
+
 
 
 }
@@ -5123,7 +5183,7 @@ void BJJA_LM_1S_worker()
   
   if(gTimer_count_for_periodic_upload>gFlash_data.periodic_timer)
   {
-    if(g4GStatus == TELCOMM_STATUS_ONLINE)
+    if(g4GStatus == TELCOMM_STATUS_ONLINE && gACC_ON_timer_flag!=0)
     {
       send_mqtt_test_cmd("WAKEUP\r\n");  
     }
