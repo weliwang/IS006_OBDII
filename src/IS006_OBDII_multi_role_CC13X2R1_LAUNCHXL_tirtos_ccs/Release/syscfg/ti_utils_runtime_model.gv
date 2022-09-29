@@ -88,6 +88,8 @@ digraph Model
     GPIO_3V8_EN -> CONFIG_PIN_4
     GPIO_4G_PWR -> CONFIG_PIN_5
     GPIO_4G_RST -> CONFIG_PIN_6
+    GPIO_LOCK -> CONFIG_PIN_7
+    GPIO_UNLOCK -> CONFIG_PIN_8
 
     // mod.$name=/ti/drivers/NVS
     CONFIG_NVSINTERNAL -> ti_drivers_Board

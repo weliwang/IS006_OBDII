@@ -123,6 +123,7 @@ Target Device: cc13x2_26x2
 #define MR_EVT_OBDD_PERIODIC       14//add by weli
 #define SBP_UART_INCOMING_EVT      15//add by weli
 #define SBP_UART2_INCOMING_EVT      16//add by weli
+#define BJJA_LM_Notify_DATA_EVT     17//add by weli
 
 // Internal Events for RTOS application
 #define MR_ICALL_EVT                         ICALL_MSG_EVENT_ID // Event_Id_31
@@ -439,6 +440,7 @@ static void BJJA_mqtt_connect(void);
 void parsing_mqtt_return_cmd(uint8_t *data);
 void BJJA_reconnect_4G();
 void send_mqtt_test_cmd(uint8_t *mylocaldata);
+void send_mqtt_cmd(uint8_t *mylocaldata);
 uint8_t BJJA_LM_read_gps();
 void BJJA_LM_GPS_mode();
 void BJJA_LM_4G_mode();
@@ -446,6 +448,8 @@ void BJJA_LM_enable_gps();
 void BJJA_LM_disable_gps();
 static void BJJA_LM_4G_HeartBeat();
 void BJJA_LM_4G_early_init();
+void BJJA_LM_control_door_function(uint8_t mode);
+void BJJA_LM_BLE_INCOMING();
 #define OBD_MAX_CMD 13
 typedef struct
 {
@@ -502,6 +506,7 @@ uint8_t g4G_cmd_flag=0x00;
 static uint8_t g4G_connection_retry_count=0x00;
 static uint8_t gAutoMode_reconnecting_count=0x00;
 uint16_t g4G_heartbeat=0x00;
+uint8_t gCurrent_Notify_id=0x00;
 void PRINT_DATA(char *ptr, ...)
 {
   uint8 data[255] = { 0 };
@@ -1947,7 +1952,11 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
       safeToDealloc = FALSE;
       break;
     }
-
+    case BJJA_LM_Notify_DATA_EVT:
+    {
+      BJJA_LM_BLE_INCOMING();
+      break;
+    }
     case MR_EVT_PERIODIC:
     {
       multi_role_performPeriodicTask();
@@ -2299,6 +2308,60 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
         //SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen("thx for all cansec fans,Weli,amy is baga.") ,"thx for all cansec fans,Weli,amy is baga.");//weli add
         gArm_Disarm_command=2;
         PRINT_DATA("from BLE set DISARM\r\n");
+      }
+      else if(strncmp(charValue3,"AT+OpenDR=",strlen("AT+OpenDR="))==0)
+      {
+        //parsing token
+        //check mac address
+        //control door.
+        uint8_t random_number[32]={0x00};
+        uint8_t mac_addr[16]={0x00};
+        uint8_t user_id[32]={0x00};
+        uint8_t door_state=0;
+        char * pch;
+        //printf ("Splitting string \"%s\" into tokens:\n",str);
+        char *delim = ",";
+        pch = strtok(charValue3,delim);
+        if (pch != NULL)
+        {
+          sprintf(random_number,"%s",pch);
+          pch = strtok(NULL,delim);
+          if(pch!=NULL)
+          {
+            sprintf(mac_addr,"%s",pch);
+            pch = strtok(NULL,delim);
+            if(pch!=NULL)
+            {
+              sprintf(user_id,"%s",pch);
+              pch = strtok(NULL,delim);
+              if(pch!=NULL)
+              {
+                  door_state = atoi(pch);
+                  //PRINT_DATA("Door control mac:%s,user:%s,door:%d\r\n",mac_addr,user_id,door_state);
+                  if(door_state==0)
+                    gCurrent_Notify_id=1;//door lock
+                  else
+                    gCurrent_Notify_id=2;//door unlock
+                  multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+
+              }
+            }
+          }
+        }
+      }
+      else if(strncmp(charValue3,"AT+DRMode=?",strlen("AT+DRMode=?"))==0)
+      {
+        gCurrent_Notify_id=4;
+        multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+      }
+      else if(strncmp(charValue3,"AT+DRMode=",strlen("AT+DRMode="))==0)
+      {
+        if(charValue3[10]=='0')
+          gFlash_data.door_mode = 0;
+        else
+          gFlash_data.door_mode = 1;
+        gCurrent_Notify_id=3;
+        multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
       }
       else
       {
@@ -4095,6 +4158,21 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
       Task_sleep(1000000 / Clock_tickPeriod); BJJA_LM_tick_wdt();
     }
   }
+  else if (strncmp(serialBuffer2,"AT+LOCKMODE=",strlen("AT+LOCKMODE="))==0)
+  {
+    if(serialBuffer2[12]=='0')
+      gFlash_data.door_mode=0;
+    else
+      gFlash_data.door_mode=1;
+    BJJA_LM_write_flash();
+  }
+  else if (strncmp(serialBuffer2,"AT+LOCK=",strlen("AT+LOCK="))==0)
+  {
+    if(serialBuffer2[8]=='0')
+      BJJA_LM_control_door_function(0);//lock test
+    else
+      BJJA_LM_control_door_function(1);//unlock test
+  }
   else if (strncmp(serialBuffer2,"AT+4G=",strlen("AT+4G="))==0)
   {
     PRINT_DATA("Send to 4G:[%s]\r\n",serialBuffer2+6);
@@ -4139,6 +4217,7 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
       pch = strtok(NULL,delim);
       
       sprintf(gFlash_data.mqtt_url,"%s",pch);
+      BJJA_LM_write_flash();
       PRINT_DATA("OK+4G_MQTT_URL\r\n");
     }
     else
@@ -4718,6 +4797,7 @@ void BJJA_LM_load_default_setting()
     gFlash_data.sign[2]='Y';
     gFlash_data.last_statemachine=Idle;
     gFlash_data.periodic_timer=30;
+    gFlash_data.door_mode=0;
 
 
     gFlash_data.mqtt_port=1883;
@@ -4788,6 +4868,12 @@ void BJJA_LM_init()
   DELAY_US(1000*100);
   GPIO_write(GPIO_4G_RST,0);
   PRINT_DATA("Enable LTE-M module\r\n");
+
+  
+  
+  GPIO_write(GPIO_LOCK,0);//pull down car door lock pin
+  GPIO_write(GPIO_UNLOCK,0);//pull down car door unlock pin
+  
 
   /*UartMessage("AT\r\n",4);
   DELAY_US(1000*100);
@@ -5103,6 +5189,20 @@ static void BJJA_mqtt_connect()
 void parsing_mqtt_return_cmd(uint8_t *data)
 {
   PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
+  PRINT_DATA("MQTT DATA:[%s]\r\n",data);
+  if(strncmp(data,"AT+Door=",strlen("AT+Door="))==0)
+  {
+    if(data[8]=='0')
+    {
+      BJJA_LM_control_door_function(0);
+      send_mqtt_cmd("OK+Door:0\r\n");
+    }
+    else
+    {
+      BJJA_LM_control_door_function(1);
+      send_mqtt_cmd("OK+Door:1\r\n");
+    }
+  }
 }
 void BJJA_LM_enable_gps()
 {
@@ -5150,6 +5250,13 @@ uint8_t BJJA_LM_read_gps()
     sprintf(gLastGpsLat,"NO_GPS\r\n");
   }*/
   return gLastGpsLat_flag;
+}
+void send_mqtt_cmd(uint8_t *mylocaldata)
+{
+  PRINT_DATA("%s-send mqtt data\r\n",__FUNCTION__);
+  SEND_LTE_M("AT+QMTPUB=0,0,0,0,\"/AVIS/%02x%02x%02x%02x%02x%02x/uplink\",%d\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5],strlen(mylocaldata));
+  DELAY_US(30*1000);
+  SEND_LTE_M("%s",mylocaldata);
 }
 void send_mqtt_test_cmd(uint8_t *mylocaldata)
 {
@@ -5199,5 +5306,75 @@ void BJJA_LM_1S_worker()
     gTimer_count_for_periodic_upload++;
   }
 
+}
+void BJJA_LM_control_door_function(uint8_t mode)
+{
+  if(mode==0)//lock mode
+  {
+    GPIO_write(GPIO_LOCK,1);
+    if(gFlash_data.door_mode==0)
+    {
+        Task_sleep(750000 / Clock_tickPeriod);//us  
+    }
+    else
+    {
+        Task_sleep(1000000 / Clock_tickPeriod);//us   
+        BJJA_LM_tick_wdt();
+        Task_sleep(1000000 / Clock_tickPeriod);//us   
+        BJJA_LM_tick_wdt();
+        Task_sleep(1000000 / Clock_tickPeriod);//us   
+        BJJA_LM_tick_wdt();
+        Task_sleep(1000000 / Clock_tickPeriod);//us   
+        BJJA_LM_tick_wdt();
+        Task_sleep(1000000 / Clock_tickPeriod);//us   
+        BJJA_LM_tick_wdt();
+    }
+    GPIO_write(GPIO_LOCK,0);
+  }
+  else//unlock mode
+  {
+    GPIO_write(GPIO_UNLOCK,1);
+    if(gFlash_data.door_mode==0)
+    {
+        Task_sleep(750000 / Clock_tickPeriod);//us  
+    }
+    else
+    {
+        Task_sleep(1000000 / Clock_tickPeriod);//us   
+        BJJA_LM_tick_wdt();
+        Task_sleep(1000000 / Clock_tickPeriod);//us   
+        BJJA_LM_tick_wdt();
+        Task_sleep(1000000 / Clock_tickPeriod);//us   
+        BJJA_LM_tick_wdt();
+        Task_sleep(1000000 / Clock_tickPeriod);//us   
+        BJJA_LM_tick_wdt();
+        Task_sleep(1000000 / Clock_tickPeriod);//us   
+        BJJA_LM_tick_wdt();
+    }
+    GPIO_write(GPIO_UNLOCK,0);
+  }
+}
+void BJJA_LM_BLE_INCOMING()
+{
+  uint8_t mytmp[32]={0x00};
+  if(gCurrent_Notify_id==1 || gCurrent_Notify_id==2)
+  {
+    sprintf(mytmp,"OK+OpenDR:%d",gCurrent_Notify_id-1);
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+    BJJA_LM_control_door_function(gCurrent_Notify_id-1);
+  }
+  else if(gCurrent_Notify_id==3)
+  {
+    sprintf(mytmp,"OK+DRMode:%d",gFlash_data.door_mode);
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+
+    BJJA_LM_write_flash();
+  }
+  else if(gCurrent_Notify_id==4)
+  {
+    sprintf(mytmp,"OK+DRMode:%d",gFlash_data.door_mode);
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  gCurrent_Notify_id=0;
 }
 /************************* THIS IS FOR UART2 END ***********************/

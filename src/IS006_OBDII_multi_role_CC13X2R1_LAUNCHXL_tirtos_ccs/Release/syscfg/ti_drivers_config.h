@@ -110,7 +110,13 @@ extern const uint_least8_t              GPIO_4G_PWR_CONST;
 /* DIO7 */
 extern const uint_least8_t              GPIO_4G_RST_CONST;
 #define GPIO_4G_RST                     6
-#define CONFIG_TI_DRIVERS_GPIO_COUNT    7
+/* DIO18 */
+extern const uint_least8_t              GPIO_LOCK_CONST;
+#define GPIO_LOCK                       7
+/* DIO19 */
+extern const uint_least8_t              GPIO_UNLOCK_CONST;
+#define GPIO_UNLOCK                     8
+#define CONFIG_TI_DRIVERS_GPIO_COUNT    9
 
 /* LEDs are active high */
 #define CONFIG_GPIO_LED_ON  (1)
@@ -154,11 +160,15 @@ extern const PIN_Config BoardGpioInitTable[];
 #define CONFIG_PIN_5                   0x00000008
 /* Parent Signal: GPIO_4G_RST GPIO Pin, (DIO7) */
 #define CONFIG_PIN_6                   0x00000007
+/* Parent Signal: GPIO_LOCK GPIO Pin, (DIO18) */
+#define CONFIG_PIN_7                   0x00000012
+/* Parent Signal: GPIO_UNLOCK GPIO Pin, (DIO19) */
+#define CONFIG_PIN_8                   0x00000013
 /* Parent Signal: CONFIG_UART_0 TX, (DIO11) */
 #define CONFIG_PIN_2                   0x0000000b
 /* Parent Signal: CONFIG_UART_0 RX, (DIO16) */
 #define CONFIG_PIN_3                   0x00000010
-#define CONFIG_TI_DRIVERS_PIN_COUNT    11
+#define CONFIG_TI_DRIVERS_PIN_COUNT    13
 
 
 

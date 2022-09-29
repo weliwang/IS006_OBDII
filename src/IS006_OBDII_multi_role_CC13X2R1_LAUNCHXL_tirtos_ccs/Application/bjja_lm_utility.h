@@ -25,6 +25,7 @@ typedef struct
   uint8_t mqtt_authority;
   uint8_t mqtt_user[32];
   uint8_t mqtt_passwd[32];
+  uint8_t door_mode;
 } BJJM_LM_flash_data;
 
 
