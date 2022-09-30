@@ -20,12 +20,15 @@ typedef struct
   uint8_t sn[16];
   uint16_t periodic_timer;//periodic upload timer unit:s
   uint8_t last_statemachine;
-  uint8_t mqtt_url[64];
+  uint8_t mqtt_url[32];
   uint16_t mqtt_port;
   uint8_t mqtt_authority;
   uint8_t mqtt_user[32];
   uint8_t mqtt_passwd[32];
   uint8_t door_mode;
+  uint8_t user_name[16];
+  uint32_t ODO_meter;
+  uint8_t SOC;
 } BJJM_LM_flash_data;
 
 

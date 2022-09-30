@@ -49,7 +49,7 @@ Target Device: cc13x2_26x2
 * INCLUDES
 */
 #include <string.h>
-
+#include <stdio.h>
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Clock.h>
 #include <ti/sysbios/knl/Event.h>
@@ -138,7 +138,7 @@ Target Device: cc13x2_26x2
 // Task configuration
 #define MR_TASK_PRIORITY                     1
 #ifndef MR_TASK_STACK_SIZE
-#define MR_TASK_STACK_SIZE                   1024
+#define MR_TASK_STACK_SIZE                   4096
 #endif
 
 // Discovery states
@@ -509,6 +509,9 @@ static uint8_t g4G_connection_retry_count=0x00;
 static uint8_t gAutoMode_reconnecting_count=0x00;
 uint16_t g4G_heartbeat=0x00;
 uint8_t gCurrent_Notify_id=0x00;
+uint8_t gACC_ON_OFF_flag=0x00;
+uint32_t gODO_meter=0x00;
+uint8_t gDoor_State=0x00;
 void PRINT_DATA(char *ptr, ...)
 {
   uint8 data[255] = { 0 };
@@ -4309,8 +4312,12 @@ uint8_t BJJA_LM_check_DOOR()
   {
     DELAY_US(1000*20);
     if(GPIO_read(CONFIG_DOOR))//weli:INGI DIO3 low active
+    {
+      gDoor_State=0;
       return 0;   
+    }
   }
+  gDoor_State=1;
   return 1; 
 }
 bool cansec_doNotify(uint8_t index)
@@ -4596,8 +4603,11 @@ void BJJA_LM_Working_state_running()
         
         //DELAY_US(1000*500);//20ms
         
-        PRINT_DATA("Odometer:12345km,fuel level:76%\r\n");
-        //todo:weli notify ltem and ble
+        gFlash_data.ODO_meter=3250;
+        gFlash_data.SOC=32;
+        PRINT_DATA("Odometer:%dkm,fuel level:%d%\r\n",gFlash_data.ODO_meter,gFlash_data.SOC);
+        //todo:weli assign odo and soc to above varible
+        //todo:write back flash.
         gWorkingHeartBeat=0;
       }
     }
@@ -4675,6 +4685,7 @@ void BJJA_LM_Entry_DisArm_state()
 
         //todo notify to lte-m and ble
         PRINT_DATA("entry disarm-state OK\r\n");
+        gACC_ON_OFF_flag=4;
       }
       else
       {
@@ -4721,6 +4732,7 @@ void BJJA_LM_Entry_Arm_state()
 
         //todo notify to lte-m and ble
         PRINT_DATA("entry arm-state OK:%d\r\n",gBJJA_LM_State_machine);
+        gACC_ON_OFF_flag=3;
       }
       else
       {
@@ -4740,6 +4752,9 @@ void BJJA_LM_state_machine_heart_beat()
   {
     if(gACC_ON_timer_flag<=250)
       gACC_ON_timer_flag++;
+    if(gACC_ON_timer_flag==1)
+      gACC_ON_OFF_flag=1;
+
 
     // run do scan OBDII
     UartMessage2("acc on ",strlen("acc on ")); //weli mark
@@ -4752,6 +4767,8 @@ void BJJA_LM_state_machine_heart_beat()
   }
   else
   {
+    if(gACC_ON_timer_flag>0)
+      gACC_ON_OFF_flag=2;
     gACC_ON_timer_flag=0;
     UartMessage2("acc off ",strlen("acc off ")); //weli mark
   }
@@ -4856,8 +4873,8 @@ void BJJA_LM_load_default_setting()
 
 
     gFlash_data.mqtt_port=1883;
-    sprintf(gFlash_data.mqtt_url,"%s","mqtt.eclipseprojects.io");
-    gFlash_data.mqtt_authority=0;
+    sprintf(gFlash_data.mqtt_url,"%s","rf-idh.com");
+    gFlash_data.mqtt_authority=1883;
     sprintf(gFlash_data.mqtt_user,"%s","foo");
     sprintf(gFlash_data.mqtt_passwd,"%s","bar");
     //write save data end in here
@@ -4923,6 +4940,9 @@ void BJJA_LM_init()
   DELAY_US(1000*100);
   GPIO_write(GPIO_4G_RST,0);
   PRINT_DATA("Enable LTE-M module\r\n");
+
+  sprintf(gFlash_data.user_name,"weli");
+  
 
   
   
@@ -5014,11 +5034,15 @@ void GetMacAddress(uint8 *p_Address)
 }
 uint8_t check_ble()
 {
+  
   //PRINT_DATA("-------------\r\n");
   //for(uint8_t i=0;i<16;i++)
   //  PRINT_DATA("%2x",gFlash_data.sn[i]);
   //PRINT_DATA("\r\n");
   GetMacAddress(gMac);
+  gvalid=1;
+  return 1;
+
   //http://testprotect.com/appendix/AEScalc
   //cf21513c0d0a1203251220030144ff01//key
   //fca89beca98afca89beca98aaabbccdd//mac 
@@ -5316,16 +5340,25 @@ void send_mqtt_cmd(uint8_t *mylocaldata)
 void send_mqtt_test_cmd(uint8_t *mylocaldata)
 {
   PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
-  
+#if 1
   uint8_t ret = BJJA_LM_read_gps();
   if(strlen(gLastGpsLat)==0)
-    sprintf(gLastGpsLat,"ERR:GPS_NOT_FIXED\r\n");
+    snprintf(gLastGpsLat,sizeof(gLastGpsLat),"%dN,%dE",0,0);
   uint8_t msg[128]={0x00};
-  sprintf(msg,"%s\r\n",gLastGpsLat);
+  sprintf(msg,"+EVT_STATUS:%s,%d,%d,%d,%s\r\n",/*"weli",12300,32,0,"N,E"*/gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State,gLastGpsLat);
+  //PRINT_DATA("send msg:%s\r\n",msg);
+  //memset(msg,0x00,sizeof(msg));
+  //snprintf(mylog_s,"UPLOAD:%s\r\n",gLastGpsLat);
+  
+  //snprintf(mylog_s,"GPS:%s\r\n",gLastGpsLat);
+
 
   SEND_LTE_M("AT+QMTPUB=0,0,0,0,\"/AVIS/%02x%02x%02x%02x%02x%02x/uplink\",%d\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5],/*strlen(mylocaldata)*/strlen(msg));
   DELAY_US(30*1000);
   SEND_LTE_M("%s",msg/*mylocaldata*/);
+  //SEND_LTE_M(mylog_s);
+#endif
+  PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
 }
 void BJJA_LM_4G_early_init()
 {
@@ -5360,7 +5393,22 @@ void BJJA_LM_1S_worker()
     
     gTimer_count_for_periodic_upload++;
   }
-
+#if 1
+  if(g4GStatus == TELCOMM_STATUS_ONLINE && gACC_ON_OFF_flag>0)
+  {
+    uint8_t mydata[64]={0x00};
+    if(gACC_ON_timer_flag==1)
+      sprintf(mydata,"+EVT_ACC_ON:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
+    else if(gACC_ON_OFF_flag==2)
+      sprintf(mydata,"+EVT_ACC_OFF:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
+    else if(gACC_ON_OFF_flag==3)//update ARM state
+      sprintf(mydata,"+EVT_ARM:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
+    else if(gACC_ON_OFF_flag==4)//update DISARM state
+      sprintf(mydata,"+EVT_DISARM:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
+    send_mqtt_cmd(mydata);
+    gACC_ON_OFF_flag=0;
+  }
+#endif
 }
 void BJJA_LM_control_door_function(uint8_t mode)
 {
