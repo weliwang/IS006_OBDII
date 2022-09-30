@@ -450,6 +450,8 @@ static void BJJA_LM_4G_HeartBeat();
 void BJJA_LM_4G_early_init();
 void BJJA_LM_control_door_function(uint8_t mode);
 void BJJA_LM_BLE_INCOMING();
+uint8_t BJJA_LM_Early_Entry_DisArm_state();
+uint8_t BJJA_LM_Early_Entry_Arm_state();
 #define OBD_MAX_CMD 13
 typedef struct
 {
@@ -2299,15 +2301,53 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
       SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, charValue3);
       if(strncmp(charValue3,"AT+ARM",strlen("AT+ARM"))==0)
       {
+        /*
         //SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen("thx for all cansec fans,Weli,amy is baga.") ,"thx for all cansec fans,Weli,amy is baga.");//weli add
         gArm_Disarm_command=1;
         PRINT_DATA("from BLE set ARM\r\n");
+        gCurrent_Notify_id=5;
+        multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+        */
+        if(BJJA_LM_Early_Entry_Arm_state())
+        {
+          PRINT_DATA("from BLE set ARM OK\r\n");
+          //gArm_Disarm_command=1;
+          //SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen("OK+ARM") ,"OK+ARM");//weli add
+          gCurrent_Notify_id=5;
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+        }
+        else
+        {
+          PRINT_DATA("from BLE set ARM FAIL\r\n");
+          //SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen("FAIL+ARM") ,"FAIL+ARM");//weli add
+          gCurrent_Notify_id=6;
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+        }
       }
       else if(strncmp(charValue3,"AT+DISARM",strlen("AT+DISARM"))==0)
       {
+        /*
         //SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen("thx for all cansec fans,Weli,amy is baga.") ,"thx for all cansec fans,Weli,amy is baga.");//weli add
         gArm_Disarm_command=2;
         PRINT_DATA("from BLE set DISARM\r\n");
+        gCurrent_Notify_id=6;
+        multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+        */
+        if(BJJA_LM_Early_Entry_DisArm_state())
+        {
+          PRINT_DATA("from BLE set DISARM OK\r\n");
+          //gArm_Disarm_command=2;
+          //SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen("OK+DISARM") ,"OK+DISARM");//weli add
+          gCurrent_Notify_id=7;
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+        }
+        else
+        {
+          PRINT_DATA("from BLE set DISARM FAIL\r\n");
+          //SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen("FAIL+DISARM") ,"FAIL+DISARM");//weli add
+          gCurrent_Notify_id=8;
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+        }
       }
       else if(strncmp(charValue3,"AT+OpenDR=",strlen("AT+OpenDR="))==0)
       {
@@ -2363,6 +2403,7 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
         gCurrent_Notify_id=3;
         multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
       }
+
       else
       {
         UartMessage2(charValue3,/*strlen(charValue3)*/gWriteUART_Length);  
@@ -4598,6 +4639,13 @@ void BJJA_LM_Entry_Idle_state()
     //do nothing;
   }
 }
+uint8_t BJJA_LM_Early_Entry_DisArm_state()
+{
+  if(gACC_ON_timer_flag==0)
+    return 1;
+  else
+    return 0;
+}
 void BJJA_LM_Entry_DisArm_state()
 {
   if(gArm_Disarm_command!=0)
@@ -4638,6 +4686,13 @@ void BJJA_LM_Entry_DisArm_state()
     
 
   }
+}
+uint8_t BJJA_LM_Early_Entry_Arm_state()
+{
+  if(gACC_ON_timer_flag==0 && BJJA_LM_check_DOOR()==0)//INGI OFF & DOOR off
+    return 1;
+  else
+    return 0;
 }
 void BJJA_LM_Entry_Arm_state()
 {
@@ -5373,6 +5428,30 @@ void BJJA_LM_BLE_INCOMING()
   else if(gCurrent_Notify_id==4)
   {
     sprintf(mytmp,"OK+DRMode:%d",gFlash_data.door_mode);
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==5)
+  {
+    sprintf(mytmp,"OK+ARM");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+    //DELAY_US(1000*100);
+    gArm_Disarm_command=1;
+  }
+  else if(gCurrent_Notify_id==6)
+  {
+    sprintf(mytmp,"FAIL+ARM");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==7)
+  {
+    sprintf(mytmp,"OK+DISARM");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+    //DELAY_US(1000*100);
+    gArm_Disarm_command=2;
+  }
+  else if(gCurrent_Notify_id==8)
+  {
+    sprintf(mytmp,"FAIL+DISARM");
     SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
   }
   gCurrent_Notify_id=0;
