@@ -138,8 +138,10 @@ Target Device: cc13x2_26x2
 // Task configuration
 #define MR_TASK_PRIORITY                     1
 #ifndef MR_TASK_STACK_SIZE
-#define MR_TASK_STACK_SIZE                   4096
+#define MR_TASK_STACK_SIZE                   8184
 #endif
+
+#define MR_TASK_STACK_SUBG_SIZE                   2048
 
 // Discovery states
 typedef enum {
@@ -221,7 +223,7 @@ typedef struct
 typedef struct 
 {
   uint8_t data_len;
-  uint8_t pBuf[64];
+  uint8_t pBuf[255];
 } bjja_lm_uart_data_t;
 
 // List element for parameter update and PHY command status lists
@@ -546,7 +548,7 @@ Task_Struct gSubgTask;
 #else
 #pragma data_alignment=8
 #endif
-uint8_t gSubgTaskStack[MR_TASK_STACK_SIZE];
+uint8_t gSubgTaskStack[MR_TASK_STACK_SUBG_SIZE];
 /*********************************************************************
  * Add by weli end
  */
@@ -3663,7 +3665,7 @@ void BJJA_LM_subg_createTask(void)
   // Configure task
   Task_Params_init(&taskParams);
   taskParams.stack = gSubgTaskStack;
-  taskParams.stackSize = MR_TASK_STACK_SIZE;
+  taskParams.stackSize = MR_TASK_STACK_SUBG_SIZE;
   taskParams.priority = MR_TASK_PRIORITY;//0low,
 
   Task_construct(&gSubgTask, BJJA_LM_subg_taskFxn, &taskParams, NULL);
@@ -5282,6 +5284,76 @@ void parsing_mqtt_return_cmd(uint8_t *data)
       send_mqtt_cmd("OK+Door:1\r\n");
     }
   }
+  else if(strncmp(data,"AT+ARM",strlen("AT+ARM"))==0)
+  {
+    
+    if(BJJA_LM_Early_Entry_Arm_state())
+    {
+      PRINT_DATA("from MQTT set ARM OK\r\n");
+      gArm_Disarm_command=1;
+      send_mqtt_cmd("OK+ARM\r\n");
+    }
+    else
+    {
+      PRINT_DATA("from MQTT set ARM FAIL\r\n");
+      send_mqtt_cmd("FAIL+ARM\r\n");
+    }
+  }
+  else if(strncmp(data,"AT+DISARM",strlen("AT+DISARM"))==0)
+  {
+    if(BJJA_LM_Early_Entry_DisArm_state())
+    {
+      PRINT_DATA("from MQTT set DISARM OK\r\n");
+      gArm_Disarm_command=2;
+      send_mqtt_cmd("OK+DISARM\r\n");
+    }
+    else
+    {
+      PRINT_DATA("from MQTT set DISARM FAIL\r\n");
+      send_mqtt_cmd("FAIL+DISARM\r\n");
+    }
+  }
+  /*else if(strncmp(data,"AT+DRMode=?",strlen("AT+DRMode=?"))==0)
+  {
+    gCurrent_Notify_id=4;
+    multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+  }
+  else if(strncmp(data,"AT+DRMode=",strlen("AT+DRMode="))==0)
+  {
+    if(charValue3[10]=='0')
+      gFlash_data.door_mode = 0;
+    else
+      gFlash_data.door_mode = 1;
+    gCurrent_Notify_id=3;
+    multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+  }*/
+  else if(strncmp(data,"AT+GetStatus=?",strlen("AT+GetStatus=?"))==0)
+  {
+    uint8_t msg[128]={0x00};
+    sprintf(msg,"OK+GetStatus:%s,%d,%d,%d,%s\r\n",/*"weli",12300,32,0,"N,E"*/gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State,gLastGpsLat);
+    send_mqtt_cmd(msg);
+  }
+  else if(strncmp(data,"AT+ChangeUploadInterval=?",strlen("AT+ChangeUploadInterval=?"))==0)
+  {
+    uint8_t tmp_result[40]={0x00};
+    sprintf(tmp_result,"OK+ChangeUploadInterval:%d\r\n",gFlash_data.periodic_timer);
+    send_mqtt_cmd(tmp_result);
+  }
+  else if(strncmp(data,"AT+ChangeUploadInterval=",strlen("AT+ChangeUploadInterval="))==0)
+  {
+    uint16_t val = atoi(data+strlen("AT+ChangeUploadInterval="));
+    if(val>=20 && val<=7200)
+    {
+      gFlash_data.periodic_timer=val;
+      BJJA_LM_write_flash();  
+      send_mqtt_cmd("OK+ChangeUploadInterval\r\n");
+    }
+    else
+    {
+      send_mqtt_cmd("FAIL+ChangeUploadInterval\r\n"); 
+    }
+  }
+
 }
 void BJJA_LM_enable_gps()
 {
