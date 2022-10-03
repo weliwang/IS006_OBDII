@@ -514,6 +514,7 @@ uint8_t gCurrent_Notify_id=0x00;
 uint8_t gACC_ON_OFF_flag=0x00;
 uint32_t gODO_meter=0x00;
 uint8_t gDoor_State=0x00;
+static uint8_t gFirst_boot=0x01;
 void PRINT_DATA(char *ptr, ...)
 {
   uint8 data[255] = { 0 };
@@ -5464,6 +5465,13 @@ void BJJA_LM_1S_worker()
   {
     
     gTimer_count_for_periodic_upload++;
+  }
+  if(g4GStatus == TELCOMM_STATUS_ONLINE && gFirst_boot)
+  {
+    gFirst_boot=0;
+    uint8_t mydata[64]={0x00};
+    sprintf(mydata,"+EVT_MB_POWER_ON:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
+    send_mqtt_cmd(mydata);
   }
 #if 1
   if(g4GStatus == TELCOMM_STATUS_ONLINE && gACC_ON_OFF_flag>0)
