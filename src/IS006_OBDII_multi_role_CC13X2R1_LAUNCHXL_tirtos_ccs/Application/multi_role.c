@@ -515,6 +515,7 @@ uint8_t gACC_ON_OFF_flag=0x00;
 uint32_t gODO_meter=0x00;
 uint8_t gDoor_State=0x00;
 static uint8_t gFirst_boot=0x01;
+static uint8_t gSuperUserMode=0x00;
 void PRINT_DATA(char *ptr, ...)
 {
   uint8 data[255] = { 0 };
@@ -2408,6 +2409,107 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
           gFlash_data.door_mode = 1;
         gCurrent_Notify_id=3;
         multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+      }
+      else if(strncmp(charValue3,"AT+SUEN=?",strlen("AT+SUEN=?"))==0)
+      {
+        gCurrent_Notify_id=9;
+        multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+      }
+      else if(strncmp(charValue3,"AT+SUEN=",strlen("AT+SUEN="))==0)
+      {
+        //gSuperUserMode
+        uint8_t tmp_mac[6]={0x00};
+        uint8_t i=0;
+        if(strlen(charValue3)>=20)
+        {
+          for(i=0;i<6;i++)
+          {
+            tmp_mac[i] = (BJJA_ascii2hex(charValue3[(8+(i*2))])<<4) | BJJA_ascii2hex(charValue3[(8+((i*2)+1))]);
+          }
+          for(i=0;i<6;i++)
+          {
+            if(gMac[i]!= tmp_mac[i])
+              break;
+          }
+          if(i>=6)
+          {
+            gSuperUserMode=1;
+            gCurrent_Notify_id=11;
+            multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+          }
+          else
+          {
+            gCurrent_Notify_id=12;
+            multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+          }
+        }
+          
+      }
+      else if(strncmp(charValue3,"AT+SUDIS",strlen("AT+SUDIS"))==0)
+      {
+        gSuperUserMode=0;
+        gCurrent_Notify_id=13;
+        multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+      }
+      else if(strncmp(charValue3,"AT+SRD=",strlen("AT+SRD="))==0)
+      {
+        if(gSuperUserMode)
+        {
+
+        }
+        else
+        {
+          gCurrent_Notify_id=10;
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+        }
+      }
+      else if(strncmp(charValue3,"AT+SR=?",strlen("AT+SR=?"))==0)
+      {
+        if(gSuperUserMode)
+        {
+
+        }
+        else
+        {
+          gCurrent_Notify_id=10;
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+        }
+      }
+      else if(strncmp(charValue3,"AT+SR=",strlen("AT+SR="))==0)
+      {
+        if(gSuperUserMode)
+        {
+
+        }
+        else
+        {
+          gCurrent_Notify_id=10;
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+        }
+      }
+      else if(strncmp(charValue3,"AT+OBDMAC=?",strlen("AT+OBDMAC=?"))==0)
+      {
+        if(gSuperUserMode)
+        {
+
+        }
+        else
+        {
+          gCurrent_Notify_id=10;
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+        }
+      }
+      else if(strncmp(charValue3,"AT+OBDMAC=",strlen("AT+OBDMAC="))==0)
+      {
+        if(gSuperUserMode)
+        {
+
+        }
+        else
+        {
+          gCurrent_Notify_id=10;
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+        }
       }
 
       else
@@ -4314,7 +4416,7 @@ uint8_t BJJA_LM_check_DOOR()
   while(DOORTimes--)
   {
     DELAY_US(1000*20);
-    if(GPIO_read(CONFIG_DOOR))//weli:INGI DIO3 low active
+    if(GPIO_read(CONFIG_DOOR))//weli:door open is pull down
     {
       gDoor_State=0;
       return 0;   
@@ -4779,11 +4881,11 @@ void BJJA_LM_state_machine_heart_beat()
   if(BJJA_LM_check_DOOR()==1)
   {
     // run do scan OBDII
-    UartMessage2("door on ",strlen("door on ")); 
+    UartMessage2("door open ",strlen("door open ")); 
   }
   else
   {
-    UartMessage2("door off ",strlen("door off ")); 
+    UartMessage2("door close ",strlen("door close ")); 
   }
   PRINT_DATA("current state machine:");
   switch(gBJJA_LM_State_machine)
@@ -5580,6 +5682,31 @@ void BJJA_LM_BLE_INCOMING()
   else if(gCurrent_Notify_id==8)
   {
     sprintf(mytmp,"FAIL+DISARM");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==9)
+  {
+    sprintf(mytmp,"OK+SUEN:%d",gSuperUserMode);
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==10)
+  {
+    sprintf(mytmp,"FAIL+PERMISSION_DENIED");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==11)
+  {
+    sprintf(mytmp,"OK+SUEN");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==12)
+  {
+    sprintf(mytmp,"FAIL+SUEN");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==13)
+  {
+    sprintf(mytmp,"OK+SUDIS");
     SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
   }
   gCurrent_Notify_id=0;
