@@ -2455,6 +2455,64 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
       {
         if(gSuperUserMode)
         {
+          //AT+SRD=0404020303030302//delete data
+          if(strlen(charValue3)>=23)
+          {
+            uint8_t find_index=0,i=0,j=0;
+            uint8_t new_S[8]={0x00};
+            // compare address not match 
+            for(i=0;i<8;i++)
+            {
+              //gSubGpairing_data[find_index].S_code[i] = (BJJA_ascii2hex(serialBuffer2[(6+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(6+((i*2)+1))]);
+              new_S[i] = (BJJA_ascii2hex(charValue3[(7+(i*2))])<<4) | BJJA_ascii2hex(charValue3[(7+((i*2)+1))]);
+            }
+            for(i=0;i<8;i++)
+            {
+              if(gSubGpairing_data[i].enable=='1')
+              {
+                find_index=0;
+                for(j=0;j<8;j++)
+                {
+                  if(new_S[j]==gSubGpairing_data[i].S_code[j])
+                  {
+                    find_index++;
+                  }
+                }
+                if(find_index>=8)
+                {
+                  break;
+                }
+              }
+            }
+            if(find_index>=8)
+            {
+               //clear data
+              gSubGpairing_data[i].enable='0';
+              for(j=0;j<8;j++)
+              {
+                  gSubGpairing_data[i].S_code[j] = 0x00;
+              }
+              //BJJA_LM_write_SR_flash();
+              PRINT_DATA("OK+SRD\r\n");
+              gCurrent_Notify_id=21;
+              multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+            }
+            else
+            {
+              PRINT_DATA("FAIL+SRD:NOT FOUND\r\n");
+              gCurrent_Notify_id=22;
+              multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+            }
+          }
+          else
+          {
+            PRINT_DATA("FAIL+SRD\r\n");
+            gCurrent_Notify_id=23;
+            multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+          }
+
+
+
 
         }
         else
@@ -2467,7 +2525,8 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
       {
         if(gSuperUserMode)
         {
-
+          gCurrent_Notify_id=14;
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
         }
         else
         {
@@ -2480,6 +2539,80 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
         if(gSuperUserMode)
         {
 
+          if(strlen(charValue3)>=22)
+          {
+            uint8_t find_index=0,i=0,j=0;
+            uint8_t new_S[8]={0x00};
+            // compare address not match 
+            for(i=0;i<8;i++)
+            {
+              //gSubGpairing_data[find_index].S_code[i] = (BJJA_ascii2hex(serialBuffer2[(6+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(6+((i*2)+1))]);
+              new_S[i] = (BJJA_ascii2hex(charValue3[(6+(i*2))])<<4) | BJJA_ascii2hex(charValue3[(6+((i*2)+1))]);
+            }
+            for(i=0;i<8;i++)
+            {
+              if(gSubGpairing_data[i].enable=='1')
+              {
+                find_index=0;
+                for(j=0;j<8;j++)
+                {
+                  if(new_S[j]==gSubGpairing_data[i].S_code[j])
+                  {
+                    find_index++;
+                  }
+                }
+                if(find_index>=8)
+                {
+                  break;
+                }
+              }
+              
+            }
+
+            if(find_index>=8)
+            {
+              //show fail,has exist
+              PRINT_DATA("FAIL+SR:DATA IS EXIST\r\n");
+              gCurrent_Notify_id=18;
+              multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+            }
+            else
+            {
+              //write data
+              //FIND EMPTY ENABLE FLAG
+              find_index=0;
+              for(i=0;i<8;i++)
+              {
+                if(gSubGpairing_data[i].enable!='1')
+                {
+                  break;
+                }
+              }
+              gSubGpairing_data[i].enable='1';
+              for(j=0;j<8;j++)
+              {
+                //gSubGpairing_data[find_index].S_code[i] = (BJJA_ascii2hex(serialBuffer2[(6+(i*2))])<<4) | BJJA_ascii2hex(serialBuffer2[(6+((i*2)+1))]);
+                gSubGpairing_data[i].S_code[j] = new_S[j];
+              }
+              PRINT_DATA("OK+SR\r\n");
+              gCurrent_Notify_id=20;
+              multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+              
+            }
+          
+          }
+          else
+          {
+            PRINT_DATA("FAIL+SR\r\n");
+            gCurrent_Notify_id=19;
+            multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+          }
+
+
+
+
+
+
         }
         else
         {
@@ -2491,7 +2624,8 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
       {
         if(gSuperUserMode)
         {
-
+          gCurrent_Notify_id=15;
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
         }
         else
         {
@@ -2503,7 +2637,22 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
       {
         if(gSuperUserMode)
         {
-
+          //AT+OBDMAC=F588E24D5B94
+          if(strlen(charValue3)>=22)
+          {
+            for(uint8_t i=0;i<6;i++)
+            {
+              gFlash_data.obdii_mac[i] = (BJJA_ascii2hex(charValue3[(10+(i*2))])<<4) | BJJA_ascii2hex(charValue3[(10+((i*2)+1))]);
+            }
+            PRINT_DATA("OK+OBDMAC\r\n");
+            gCurrent_Notify_id=16;
+          }
+          else
+          {
+            PRINT_DATA("FAIL+OBDMAC\r\n");
+            gCurrent_Notify_id=17;
+          }
+          multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
         }
         else
         {
@@ -5707,6 +5856,77 @@ void BJJA_LM_BLE_INCOMING()
   else if(gCurrent_Notify_id==13)
   {
     sprintf(mytmp,"OK+SUDIS");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==14)
+  {
+    sprintf(mytmp,"OK+SR:\r\n");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+    DELAY_US(1000*30);
+    uint8_t i=0;
+    for(i=0;i<8;i++)
+    {
+      if(gSubGpairing_data[i].enable=='1')
+      {
+        sprintf(mytmp,"[%d]%02x%02x%02x%02x%02x%02x%02x%02x\r\n",i,
+          gSubGpairing_data[i].S_code[0],gSubGpairing_data[i].S_code[1],
+          gSubGpairing_data[i].S_code[2],gSubGpairing_data[i].S_code[3],
+          gSubGpairing_data[i].S_code[4],gSubGpairing_data[i].S_code[5],
+          gSubGpairing_data[i].S_code[6],gSubGpairing_data[i].S_code[7]);
+        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+        DELAY_US(1000*50);
+      }
+    }
+  }
+  else if(gCurrent_Notify_id==15)//get OBD MAC
+  {
+    sprintf(mytmp,"OK+OBDMAC:%02x%02x%02x%02x%02x%02x\r\n",gFlash_data.obdii_mac[0],
+      gFlash_data.obdii_mac[1],gFlash_data.obdii_mac[2],
+      gFlash_data.obdii_mac[3],gFlash_data.obdii_mac[4],
+      gFlash_data.obdii_mac[5]);
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==16)//set OBD MAC OK
+  {
+    BJJA_LM_write_flash();
+    sprintf(mytmp,"OK+OBDMAC");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==17)//set OBD MAC FAIL
+  {
+    sprintf(mytmp,"FAIL+OBDMAC");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==18)//AT+SR DATA IS EXIST
+  {
+    sprintf(mytmp,"FAIL+SR:DATA_IS_EXIST");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==19)//SR FAIL
+  {
+    sprintf(mytmp,"FAIL+SR");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==20)//AT+SR DATA IS EXIST
+  {
+    BJJA_LM_write_SR_flash();
+    sprintf(mytmp,"OK+SR");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==21)//AT+SRD OK
+  {
+    BJJA_LM_write_SR_flash();
+    sprintf(mytmp,"OK+SRD");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==22)//SRD NOT FOUND
+  {
+    sprintf(mytmp,"FAIL+SRD:NOT_FOUND");
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
+  }
+  else if(gCurrent_Notify_id==23)//SRD FAIL
+  {
+    sprintf(mytmp,"FAIL+SRD");
     SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
   }
   gCurrent_Notify_id=0;
