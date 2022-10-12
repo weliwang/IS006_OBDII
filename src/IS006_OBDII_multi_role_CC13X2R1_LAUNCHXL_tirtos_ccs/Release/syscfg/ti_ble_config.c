@@ -16,7 +16,7 @@
  */
 
 // Device Name
-uint8_t attDeviceName[GAP_DEVICE_NAME_LEN]= "Multi Role";
+uint8_t attDeviceName[GAP_DEVICE_NAME_LEN]= "AVIS";
 
 //Random Address
 uint8_t * pRandomAddress = NULL;
@@ -97,44 +97,22 @@ GapAdv_params_t advParams1 = {
 // Advertisement data
 uint8_t advData1[] =
 {
+  0x05,
+  GAP_ADTYPE_LOCAL_NAME_COMPLETE,
+  'A',
+  'V',
+  'I',
+  'S',
+
   0x02,
   GAP_ADTYPE_FLAGS,
-  GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED | GAP_ADTYPE_FLAGS_GENERAL,
+  GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
 
   0x03,
   GAP_ADTYPE_16BIT_MORE,
   // More 16-bit - UUID 0
   LO_UINT16(0xfff0),
   HI_UINT16(0xfff0),
-
-};
-
-// Scan Response Data
-uint8_t scanResData1[] =
-{
-  0x0b,
-  GAP_ADTYPE_LOCAL_NAME_COMPLETE,
-  'M',
-  'u',
-  'l',
-  't',
-  'i',
-  ' ',
-  'R',
-  'o',
-  'l',
-  'e',
-
-  0x02,
-  GAP_ADTYPE_POWER_LEVEL,
-  0,
-
-  0x05,
-  GAP_ADTYPE_SLAVE_CONN_INTERVAL_RANGE,
-  LO_UINT16(80),
-  HI_UINT16(80),
-  LO_UINT16(104),
-  HI_UINT16(104),
 
 };
 

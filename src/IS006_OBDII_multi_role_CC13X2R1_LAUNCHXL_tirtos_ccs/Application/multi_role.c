@@ -1552,8 +1552,8 @@ static void multi_role_advertInit(void)
                       sizeof(advData1), advData1);
 
   // Load scan response data for set #1 that is statically allocated by the app
-  GapAdv_loadByHandle(advHandle, GAP_ADV_DATA_TYPE_SCAN_RSP,
-                      sizeof(scanResData1), scanResData1);
+  //GapAdv_loadByHandle(advHandle, GAP_ADV_DATA_TYPE_SCAN_RSP,
+  //                    sizeof(scanResData1), scanResData1);
 
   // Set event mask for set #1
   GapAdv_setEventMask(advHandle,

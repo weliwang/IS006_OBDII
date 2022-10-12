@@ -181,7 +181,6 @@ extern void setBondManagerParameters();
 
 // Advertisement Set Number 1
 extern GapAdv_params_t advParams1;
-extern uint8_t advData1[7];
-extern uint8_t scanResData1[21];
+extern uint8_t advData1[13];
 
 #endif /* TI_BLE_CONFIG_H */
