@@ -1,44 +1,31 @@
 /******************************************************************************
-
-@file  multi_role.c
-
-@brief This file contains the multi_role sample application for use
-with the CC2650 Bluetooth Low Energy Protocol Stack.
-
-Group: WCS, BTS
-Target Device: cc13x2_26x2
-
-******************************************************************************
-
- Copyright (c) 2013-2021, Texas Instruments Incorporated
- All rights reserved.
-
- Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that the following conditions
- are met:
-
- *  Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
-
- *  Redistributions in binary form must reproduce the above copyright
-    notice, this list of conditions and the following disclaimer in the
-    documentation and/or other materials provided with the distribution.
-
- *  Neither the name of Texas Instruments Incorporated nor the names of
-    its contributors may be used to endorse or promote products derived
-    from this software without specific prior written permission.
-
- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+//                       _oo0oo_
+//                      o8888888o
+//                      88" . "88
+//                      (| -_- |)
+//                      0\  =  /0
+//                    ___/`---'\___
+//                  .' \\|     |// '.
+//                 / \\|||  :  |||// \
+//                / _||||| -:- |||||- \
+//               |   | \\\  -  /// |   |
+//               | \_|  ''\---/''  |_/ |
+//               \  .-\__  '-'  ___/-. /
+//             ___'. .'  /--.--\  `. .'___
+//          ."" '<  `.___\_<|>_/___.' >' "".
+//         | | :  `- \`.;`\ _ /`;.`/ - ` : | |
+//         \  \ `_.   \_ __\ /__ _/   .-` /  /
+//     =====`-.____`.___ \_____/___.-`___.-'=====
+//                       `=---='
+//
+//
+//     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//
+//               佛祖保佑         永無BUG
+//
+//
+//
 
 ******************************************************************************
 
@@ -454,6 +441,9 @@ void BJJA_LM_control_door_function(uint8_t mode);
 void BJJA_LM_BLE_INCOMING();
 uint8_t BJJA_LM_Early_Entry_DisArm_state();
 uint8_t BJJA_LM_Early_Entry_Arm_state();
+void BJJA_LM_send_odo_cmd(uint8_t type);//0toyota,1 standard obdii
+void BJJA_LM_send_fuel_level_cmd(uint8_t type);//0toyota,1 standard obdii
+void BJJA_LM_parsing_OBDII_data(uint8 *data,uint8 len);
 #define OBD_MAX_CMD 13
 typedef struct
 {
@@ -1648,6 +1638,35 @@ static uint8_t multi_role_processGATTMsg(gattMsgEvent_t *pMsg)
         PRINT_DATA("+Incoming=%s,%d,%s\r\n",
           Util_convertBdAddr2Str(connList[index].addr),pMsg->msg.handleValueNoti.len,
           pMsg->msg.handleValueNoti.pValue);
+#if 1
+        BJJA_LM_parsing_OBDII_data(pMsg->msg.handleValueNoti.pValue,pMsg->msg.handleValueNoti.len);
+#else //this is test mode
+        uint8_t mytest[32]={0x00};
+        //toyota odometer setting
+        sprintf(mytest,"7E80561280070E3");
+        BJJA_LM_parsing_OBDII_data(mytest,strlen(mytest));
+        sprintf(mytest,">7E80561280070E3");
+        BJJA_LM_parsing_OBDII_data(mytest,strlen(mytest));
+        sprintf(mytest,"\r\n>7E80561280070E3\r\n");
+        BJJA_LM_parsing_OBDII_data(mytest,strlen(mytest));
+
+        //standard obdii odometer
+        sprintf(mytest,"7E80641A600066095");
+        BJJA_LM_parsing_OBDII_data(mytest,strlen(mytest));
+        sprintf(mytest,">7E80641A600066095");
+        BJJA_LM_parsing_OBDII_data(mytest,strlen(mytest));
+        sprintf(mytest,"\r\n>7E80641A600066095\r\n");
+        BJJA_LM_parsing_OBDII_data(mytest,strlen(mytest));
+
+        //standard obdii fuel level
+        sprintf(mytest,"7E803412FB6");
+        BJJA_LM_parsing_OBDII_data(mytest,strlen(mytest));
+        sprintf(mytest,">7E803412FB6");
+        BJJA_LM_parsing_OBDII_data(mytest,strlen(mytest));
+        sprintf(mytest,"\r\n>7E803412FB6\r\n");
+        BJJA_LM_parsing_OBDII_data(mytest,strlen(mytest));
+
+#endif
 
       }
     }  
@@ -4846,22 +4865,23 @@ void BJJA_LM_Working_state_running()
       {
         if(obd_cmd_flag)
         {
-          cansec_Write2Periphearl(0,6,"01A6\r\n");
+          //cansec_Write2Periphearl(0,6,"01A6\r\n");
+          BJJA_LM_send_odo_cmd(1);
           obd_cmd_flag=0;
         }
         else
         {
-          cansec_Write2Periphearl(0,6,"0100\r\n");  
+          //cansec_Write2Periphearl(0,6,"0100\r\n");  
+          BJJA_LM_send_fuel_level_cmd(1);
           obd_cmd_flag=1;
         }
         
         //DELAY_US(1000*500);//20ms
         
-        gFlash_data.ODO_meter=3250;
-        gFlash_data.SOC=32;
-        PRINT_DATA("Odometer:%dkm,fuel level:%d%\r\n",gFlash_data.ODO_meter,gFlash_data.SOC);
-        //todo:weli assign odo and soc to above varible
-        //todo:write back flash.
+        //gFlash_data.ODO_meter=3250;
+        //gFlash_data.SOC=32;
+        //PRINT_DATA("Odometer:%dkm,fuel level:%d%\r\n",gFlash_data.ODO_meter,gFlash_data.SOC);
+        
         gWorkingHeartBeat=0;
       }
     }
@@ -5932,3 +5952,120 @@ void BJJA_LM_BLE_INCOMING()
   gCurrent_Notify_id=0;
 }
 /************************* THIS IS FOR UART2 END ***********************/
+
+void BJJA_LM_send_odo_cmd(uint8_t type)//0toyota,1 standard obdii
+{
+  if(type)
+  {
+    cansec_Write2Periphearl(0,6,"01A6\r\n");
+  }
+  else//toyota format
+  {
+    cansec_Write2Periphearl(0,7,"21281\r\n");
+  }
+}
+void BJJA_LM_send_fuel_level_cmd(uint8_t type)//0toyota,1 standard obdii
+{
+  if(type)
+  {
+    cansec_Write2Periphearl(0,6,"012F\r\n");  
+  }
+  else//toyota format
+  {
+    //no fuel level
+  }
+  
+}
+void BJJA_LM_parsing_OBDII_data(uint8 *data,uint8 len)
+{
+  PRINT_DATA("from:%s,data:%s,len:%d\r\n",__FUNCTION__,data,len);
+  uint8_t i=0,x=0,y=0,z=0,a=0;
+  uint32_t odo_meter=0x00;
+  uint8_t fuel_level=0x00;
+  uint8_t ret=0;
+  //todo if toyota
+  //T:21281
+  //R:7E80561280070E3
+  //7E8(ID)-05(len)-61(mode)-28(PID)-0070E3(DATA)
+  //(00(hex)*2^16)+(70(hex)*2^8)+(E3)
+  //=28672+227=28899KM
+
+  if(len>=15)//this is toyota odometer
+  {
+    for(i=0;i<len-8;i++)
+    {
+      if(data[0]=='7' && data[1]=='E' && data[2]=='8' &&
+        data[3]=='0' && data[4]=='5' && data[5]=='6' && data[6]=='1'
+        && data[7]=='2' && data[8]=='8')
+      {
+        ret=1;
+        x = ((BJJA_ascii2hex(data[9])<<4) |(BJJA_ascii2hex(data[10])));
+        y = ((BJJA_ascii2hex(data[11])<<4) |(BJJA_ascii2hex(data[12])));
+        z = ((BJJA_ascii2hex(data[13])<<4) |(BJJA_ascii2hex(data[14])));
+        odo_meter = (x*65536)+(y*256)+z;
+        PRINT_DATA("toyota:%d,%d,%d,odo:%d\r\n",x,y,z,odo_meter);
+        gFlash_data.ODO_meter = odo_meter;
+        //gFlash_data.fuel_level = fuel_level;
+        BJJA_LM_write_flash();
+      }
+    }
+  }
+  //--------------------------
+  //todo standard obdii
+  //T:012F fuel level
+  //R:7E803412FB6
+  //7E8(ID)-03(len)-41(mode)-2F(PID)-B6(DATA)
+  //B6=182(dec)
+  //100/255*182=71%
+  //--------------------------
+  if(ret==0 && len>=11)
+  {
+    for(i=0;i<len-8;i++)
+    {
+      if(data[0]=='7' && data[1]=='E' && data[2]=='8' &&
+        data[3]=='0' &&data[4]=='3' &&data[5]=='4' &&data[6]=='1'
+        &&data[7]=='2' &&data[8]=='F')
+      {
+        x = ((BJJA_ascii2hex(data[9])<<4) |(BJJA_ascii2hex(data[10])));
+        ret=1;
+        fuel_level = ((int)((float)(0.39*x)));
+        PRINT_DATA("standard OBDII fuel level:%d,fuel level:%d\r\n",x,fuel_level);
+        gFlash_data.SOC = fuel_level;
+        BJJA_LM_write_flash();
+      }
+    }
+  }
+
+  //--------------------------
+  //todo standard obdii
+  //T:012F fuel level
+  //R:7E803412FB6
+  //7E8(ID)-03(len)-41(mode)-2F(PID)-B6(DATA)
+  //B6=182(dec)
+  //100/255*182=71%
+  //--------------------------
+  //T:01A6 odo meter
+  //R:7E80641A600066095
+  //7E8(ID)-06(len)-41(mode)-A6(PID)-00066095(DATA)
+  //65536*6 + 256*96 + 149 = 393216+24576+149=4117941/10 =41794KM
+  if(len>=17)//this is toyota odometer
+  {
+    for(i=0;i<len-8;i++)
+    {
+      if(data[0]=='7' && data[1]=='E' && data[2]=='8' &&
+        data[3]=='0' &&data[4]=='6' &&data[5]=='4' &&data[6]=='1'
+        &&data[7]=='A' &&data[8]=='6')
+      {
+        ret=1;
+        x = ((BJJA_ascii2hex(data[11])<<4) |(BJJA_ascii2hex(data[12])));
+        y = ((BJJA_ascii2hex(data[13])<<4) |(BJJA_ascii2hex(data[14])));
+        z = ((BJJA_ascii2hex(data[15])<<4) |(BJJA_ascii2hex(data[16])));
+        odo_meter = ((x*65536)+(y*256)+z)/10;
+        PRINT_DATA("standard OBDII:%d,%d,%d,odo:%d\r\n",x,y,z,odo_meter);
+        gFlash_data.ODO_meter = odo_meter;
+        //gFlash_data.fuel_level = fuel_level;
+        BJJA_LM_write_flash();
+      }
+    }
+  }
+}
