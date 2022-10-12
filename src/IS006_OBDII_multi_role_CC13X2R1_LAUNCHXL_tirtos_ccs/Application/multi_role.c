@@ -125,7 +125,7 @@
 // Task configuration
 #define MR_TASK_PRIORITY                     1
 #ifndef MR_TASK_STACK_SIZE
-#define MR_TASK_STACK_SIZE                   8184
+#define MR_TASK_STACK_SIZE                   10240
 #endif
 
 #define MR_TASK_STACK_SUBG_SIZE                   2048
@@ -4087,13 +4087,13 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
             sprintf(gps_string_2,"%s",str_val);
             PRINT_DATA("get gps data:%s,%s\r\n",gps_string_1,gps_string_2);
             
-            /*uint8_t i=0;
+            uint8_t i=0;
             for(i=0;i<32;i++)
             {
               if(gps_string_1[i]=='N')//2238.3620N
-                gps_string_1[i]=0x00;
+                gps_string_1[i]=0x00;//remove 'N'
               if(gps_string_2[i]=='E')//12021.4064E
-                gps_string_1[i]=0x00;
+                gps_string_1[i]=0x00;//remove 'E'
             }
             float val1 = atof(gps_string_1);
             float val2 = atof(gps_string_2);
@@ -4101,12 +4101,16 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
             int16_t ival2 = val2/100;
             val1 = ((val1-(ival1*100))/60)+ival1;
             val2 = ((val2-(ival2*100))/60)+ival2;
-            */
+            uint8_t test_data[64]={0x00};
+            sprintf(test_data,"gps final:%4.4f,%4.4f,/100 %d,%d\r\n",val1,val2,ival1,ival2);
+            //PRINT_DATA("gps raw:%4.4f,%4.4f,/100 %d,%d\r\n",val1,val2,ival1,ival2);
+            PRINT_DATA(test_data);
+            
 
 
 
-            sprintf(gLastGpsLat,"%s,%s",gps_string_1,gps_string_2);//2238.3620N,12021.4064E
-            //sprintf(gLastGpsLat,"%fN,%fE",val1,val2);//2238.3620N,12021.4064E
+            //sprintf(gLastGpsLat,"%s,%s",gps_string_1,gps_string_2);//2238.3620N,12021.4064E
+            sprintf(gLastGpsLat,"%fN,%fE",val1,val2);//2238.3620N,12021.4064E
 
           } 
         }
