@@ -20,7 +20,7 @@ typedef struct
   uint8_t sn[16];
   uint16_t periodic_timer;//periodic upload timer unit:s
   uint8_t last_statemachine;
-  uint8_t mqtt_url[32];
+  uint8_t mqtt_url[128];
   uint16_t mqtt_port;
   uint8_t mqtt_authority;
   uint8_t mqtt_user[32];
