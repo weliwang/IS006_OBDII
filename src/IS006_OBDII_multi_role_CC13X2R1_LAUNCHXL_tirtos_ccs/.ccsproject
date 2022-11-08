@@ -7,7 +7,7 @@
 	<deviceEndianness value="little"/>
 	<codegenToolVersion value="20.2.5.LTS"/>
 	<isElfFormat value="true"/>
-	<connection value="common/targetdb/connections/TIXDS110_Connection.xml"/>
+	<connection value="common/targetdb/connections/TIXDS100v3_Dot7_Connection.xml"/>
 	<rts value=""/>
 	<createSlaveProjects value=""/>
 	<ignoreDefaultDeviceSettings value="true"/>
