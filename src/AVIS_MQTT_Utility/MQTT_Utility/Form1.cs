@@ -24,6 +24,8 @@ namespace MQTT_Utility
         public delegate void MyInvoke(byte[] data, string topic);
         public int save_flag = 0;
         public string save_path = "";
+        public string upload_mqtt_path = "";
+        public string download_mqtt_path = "";
         public Form1()
         {
             InitializeComponent();
@@ -31,7 +33,7 @@ namespace MQTT_Utility
 
         private void Form1_Load(object sender, EventArgs e)
         {
-
+            comboBox1.SelectedIndex = 0;
         }
         void MqttAWSInit()
         {
@@ -61,6 +63,8 @@ namespace MQTT_Utility
             client.Subscribe(new string[] { textBox6.Text }, new byte[] { MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE});
             //client.Publish(textBox6.Text, Encoding.UTF8.GetBytes("hello world"));
             MessageBox.Show("connect ok");
+
+            upload_mqtt("AT+GetStatus=?");
         }
         /*void MqttServerInit()
         {
@@ -120,7 +124,7 @@ namespace MQTT_Utility
         {
             
             string str_data = System.Text.Encoding.Default.GetString(data);
-            string msg = "from:" + topic + ":" + str_data;
+            string msg = "["+DateTime.Now.Year + "/" + DateTime.Now.Month + "/" + DateTime.Now.Day + " " + DateTime.Now.Hour + ":" + DateTime.Now.Minute + ":" + DateTime.Now.Second+"]"+"from:" + topic + ":" + str_data;
             textBox1.Text += msg;
             textBox2.Text += msg;
             toolStripStatusLabel1.Text = "Last update time:" + DateTime.Now.Year + "/" + DateTime.Now.Month + "/" + DateTime.Now.Day + " " + DateTime.Now.Hour + ":" + DateTime.Now.Minute + ":" + DateTime.Now.Second;
@@ -154,13 +158,22 @@ namespace MQTT_Utility
                     label8.ForeColor = Color.Green;
                 }
             }
-            else if (str_data.Contains("OK+GetStatus") == true)
+            else if (str_data.Contains("+EVT_HB") == true)
             {
                 string[] mysplit = str_data.Split(',');
-                double lat = Convert.ToDouble(mysplit[4].Replace('N', ' '));
-                double longt = Convert.ToDouble(mysplit[5].Replace('E', ' '));
+                double lat, longt;
+                try
+                {
+                    lat = Convert.ToDouble(mysplit[4].Replace('N', ' '));
+                    longt = Convert.ToDouble(mysplit[5].Replace('E', ' '));
+                }
+                catch (Exception ex)
+                {
+                    lat = longt = 0;
+                }
                 Mapping2Map(lat, longt);
-                //label7.Text = "ON";
+                label7.Text = "OFF";
+                label7.ForeColor = Color.Red;
                 //label12.Text = "driving";
                 label9.Text = mysplit[1] + "%";
                 label10.Text = mysplit[2] + "KM";
@@ -173,6 +186,34 @@ namespace MQTT_Utility
                 {
                     label8.Text = "Open";
                     label8.ForeColor = Color.Green;
+                }
+            }
+            else if (str_data.Contains("OK+GetStatus") == true)
+            {
+                try
+                {
+                    string[] mysplit = str_data.Split(',');
+                    double lat = Convert.ToDouble(mysplit[4].Replace('N', ' '));
+                    double longt = Convert.ToDouble(mysplit[5].Replace('E', ' '));
+                    Mapping2Map(lat, longt);
+                    //label7.Text = "ON";
+                    //label12.Text = "driving";
+                    label9.Text = mysplit[1] + "%";
+                    label10.Text = mysplit[2] + "KM";
+                    if (mysplit[3].Contains("0"))
+                    {
+                        label8.Text = "Close";
+                        label8.ForeColor = Color.Red;
+                    }
+                    else
+                    {
+                        label8.Text = "Open";
+                        label8.ForeColor = Color.Green;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ;
                 }
             }
             else if (str_data.Contains("+EVT_ACC_") == true)
@@ -212,10 +253,25 @@ namespace MQTT_Utility
                 label12.Text = "DISARM";
                 label12.ForeColor = Color.Green;
             }
+            else if (str_data.Contains("+EVT_DOOR") == true)
+            {
+                string[] mysplit = str_data.Split(',');
+                if (mysplit[3].Contains("0"))
+                {
+                    label8.Text = "Close";
+                    label8.ForeColor = Color.Red;
+                }
+                else
+                {
+                    label8.Text = "Open";
+                    label8.ForeColor = Color.Green;
+                }
+            }
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
+            
             //MqttServerInit();
             MqttAWSInit();
         }
@@ -387,6 +443,15 @@ namespace MQTT_Utility
         private void button19_Click(object sender, EventArgs e)
         {
             textBox2.Text = "";
+        }
+
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            /// AVIS / e4e112009d75 / downlink
+            download_mqtt_path = @"/AVIS/" + comboBox1.SelectedItem.ToString() + @"/downlink";
+            upload_mqtt_path = @"/AVIS/" + comboBox1.SelectedItem.ToString() + @"/uplink";
+            textBox7.Text = download_mqtt_path;
+            textBox6.Text = upload_mqtt_path;
         }
     }
 }

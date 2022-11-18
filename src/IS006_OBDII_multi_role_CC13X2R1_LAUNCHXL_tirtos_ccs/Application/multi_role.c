@@ -430,7 +430,7 @@ static void BJJA_4G_JOIN();
 static void BJJA_mqtt_connect(void);
 void parsing_mqtt_return_cmd(uint8_t *data);
 void BJJA_reconnect_4G();
-void send_mqtt_test_cmd(uint8_t *mylocaldata);
+void send_mqtt_test_cmd(uint8_t *mylocaldata,uint8 gps_en);
 void send_mqtt_cmd(uint8_t *mylocaldata);
 uint8_t BJJA_LM_read_gps();
 void BJJA_LM_GPS_mode();
@@ -514,6 +514,7 @@ uint8_t gCurrent_Notify_id=0x00;
 uint8_t gACC_ON_OFF_flag=0x00;
 uint32_t gODO_meter=0x00;
 uint8_t gDoor_State=0x00;
+uint8_t g_previous_door_state=0;
 static uint8_t gFirst_boot=0x01;
 static uint8_t gSuperUserMode=0x00;
 uint8_t gmyi=0;
@@ -4650,6 +4651,7 @@ uint8_t BJJA_LM_check_INGI()
   }
   return 1; 
 }
+
 uint8_t BJJA_LM_check_DOOR()
 {
   uint8_t DOORTimes=5;
@@ -5128,6 +5130,12 @@ void BJJA_LM_state_machine_heart_beat()
   {
     UartMessage2("door close ",strlen("door close ")); 
   }
+  if(gDoor_State != g_previous_door_state)
+  {
+    UartMessage2(",door state change ",strlen(",door state change ")); 
+    gACC_ON_OFF_flag=5;
+  }
+  g_previous_door_state = gDoor_State;
   PRINT_DATA("current state machine:");
   switch(gBJJA_LM_State_machine)
   {
@@ -5260,7 +5268,7 @@ void BJJA_LM_init()
   
   Board_initUser2();
   //UartMessage2("Hello world\r\n",strlen("Hello world\r\n"));
-  PRINT_DATA("Ver:v1.0.3,Build Time:%s\r\n",__TIME__);
+  PRINT_DATA("Ver:v1.0.4,Build Time:%s\r\n",__TIME__);
   BJJA_LM_load_default_setting();
   
   BJJA_LM_read_flash();
@@ -5842,20 +5850,30 @@ uint8_t BJJA_LM_read_gps()
 }
 void send_mqtt_cmd(uint8_t *mylocaldata)
 {
+  
   PRINT_DATA("%s-send mqtt data\r\n",__FUNCTION__);
   SEND_LTE_M("AT+QMTPUB=0,0,0,0,\"/AVIS/%02x%02x%02x%02x%02x%02x/uplink\",%d\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5],strlen(mylocaldata));
   DELAY_US(30*1000);
   SEND_LTE_M("%s",mylocaldata);
+  
 }
-void send_mqtt_test_cmd(uint8_t *mylocaldata)
+void send_mqtt_test_cmd(uint8_t *mylocaldata,uint8 gps_en)
 {
   PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
 #if 1
-  uint8_t ret = BJJA_LM_read_gps();
+  if(gps_en)
+  {
+    BJJA_LM_read_gps();
+  }
   if(strlen(gLastGpsLat)==0)
+  {
     snprintf(gLastGpsLat,sizeof(gLastGpsLat),"%dN,%dE",0,0);
+  }
   uint8_t msg[128]={0x00};
-  sprintf(msg,"+EVT_STATUS:%s,%d,%d,%d,%s\r\n",/*"weli",12300,32,0,"N,E"*/gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State,gLastGpsLat);
+  if(gps_en)
+    sprintf(msg,"+EVT_STATUS:%s,%d,%d,%d,%s\r\n",/*"weli",12300,32,0,"N,E"*/gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State,gLastGpsLat);
+  else
+    sprintf(msg,"+EVT_HB:%s,%d,%d,%d,%s\r\n",/*"weli",12300,32,0,"N,E"*/gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State,gLastGpsLat);
   //PRINT_DATA("send msg:%s\r\n",msg);
   //memset(msg,0x00,sizeof(msg));
   //snprintf(mylog_s,"UPLOAD:%s\r\n",gLastGpsLat);
@@ -5924,7 +5942,11 @@ void BJJA_LM_1S_worker()
   {
     if(g4GStatus == TELCOMM_STATUS_ONLINE && gACC_ON_timer_flag!=0)
     {
-      send_mqtt_test_cmd("WAKEUP\r\n");  
+      send_mqtt_test_cmd("WAKEUP\r\n",1);  //read gps
+    }
+    else if(g4GStatus == TELCOMM_STATUS_ONLINE)
+    {
+      send_mqtt_test_cmd("WAKEUP\r\n",0);  //acc off periodic upload 20221118
     }
     gTimer_count_for_periodic_upload=0;
   }
@@ -5952,6 +5974,8 @@ void BJJA_LM_1S_worker()
       sprintf(mydata,"+EVT_ARM:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
     else if(gACC_ON_OFF_flag==4)//update DISARM state
       sprintf(mydata,"+EVT_DISARM:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
+    else if(gACC_ON_OFF_flag==5)//update DISARM state
+      sprintf(mydata,"+EVT_DOOR:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
     send_mqtt_cmd(mydata);
     gACC_ON_OFF_flag=0;
   }
