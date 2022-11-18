@@ -446,7 +446,7 @@ uint8_t BJJA_LM_Early_Entry_Arm_state();
 void BJJA_LM_send_odo_cmd(uint8_t type);//0toyota,1 standard obdii
 void BJJA_LM_send_fuel_level_cmd(uint8_t type);//0toyota,1 standard obdii
 void BJJA_LM_parsing_OBDII_data(uint8 *data,uint8 len);
-#define OBD_MAX_CMD 13
+#define OBD_MAX_CMD 16
 typedef struct
 {
   uint8_t timer;
@@ -498,9 +498,9 @@ BJJM_LM_flash_data gFlash_data;
 
 uint8_t g4GStatus=TELCOMM_STATUS_4G_NON_DETECTED;
 #ifdef FACTORY
-static uint8_t gStopHB=0x00;
-#else
 static uint8_t gStopHB=0x01;
+#else
+static uint8_t gStopHB=0x00;
 #endif
 static uint8_t gCsq_val=31;
 int8_t gMQTT_received_flag=0x00;
@@ -717,7 +717,7 @@ void BJJA_LM_tick_wdt()
   //UartMessage("tick wdt2\r\n",strlen("tick wdt2\r\n"));
   //return;
   
-  //if(gvalid)
+  if(gvalid)
     Watchdog_clear(watchdogHandle);
 }
 /*
@@ -4645,7 +4645,7 @@ uint8_t BJJA_LM_check_INGI()
   while(INGITimes--)
   {
     DELAY_US(1000*20);
-    if(GPIO_read(CONFIG_INGI))//weli:INGI DIO3 low active
+    if(GPIO_read(CONFIG_INGI)==0)//weli:INGI DIO3 low active
       return 0;   
   }
   return 1; 
@@ -4938,13 +4938,13 @@ void BJJA_LM_Working_state_running()
         if(obd_cmd_flag)
         {
           //cansec_Write2Periphearl(0,6,"01A6\r\n");
-          BJJA_LM_send_odo_cmd(0);
+          BJJA_LM_send_odo_cmd(1);
           obd_cmd_flag=0;
         }
         else
         {
           //cansec_Write2Periphearl(0,6,"0100\r\n");  
-          BJJA_LM_send_fuel_level_cmd(0);
+          BJJA_LM_send_fuel_level_cmd(1);
           obd_cmd_flag=1;
         }
         
@@ -5260,7 +5260,7 @@ void BJJA_LM_init()
   
   Board_initUser2();
   //UartMessage2("Hello world\r\n",strlen("Hello world\r\n"));
-  PRINT_DATA("Ver:v1.0.0,Build Time:%s\r\n","NA");
+  PRINT_DATA("Ver:v1.0.3,Build Time:%s\r\n",__TIME__);
   BJJA_LM_load_default_setting();
   
   BJJA_LM_read_flash();
@@ -5321,7 +5321,7 @@ void BJJA_LM_init()
   //BJJA_4G_JOIN();
 
 
-
+#if 0
   myOBD[0].timer=10;
   myOBD[0].cmd_len=5;
   sprintf(myOBD[0].cmd_name,"ATZ\r\n");
@@ -5373,6 +5373,89 @@ void BJJA_LM_init()
   myOBD[12].timer=10;
   myOBD[12].cmd_len=8;
   sprintf(myOBD[12].cmd_name,"ATST96\r\n");
+#else
+  /*
+  ATE0
+  STI
+  VTI
+  ATD
+  ATD0
+  ATE0
+  ATSP0
+  ATE0
+  ATH1
+  ATM0
+  ATS0
+  ATAT1
+  ATAL
+  ATST64
+  0100
+  ATDPN
+  */
+  myOBD[0].timer=10;
+  myOBD[0].cmd_len=5;
+  sprintf(myOBD[0].cmd_name,"ATZ\r\n");
+
+  myOBD[1].timer=10;
+  myOBD[1].cmd_len=6;
+  sprintf(myOBD[1].cmd_name,"ATE0\r\n");
+
+  myOBD[2].timer=10;
+  myOBD[2].cmd_len=5;
+  sprintf(myOBD[2].cmd_name,"STI\r\n");
+
+  myOBD[3].timer=10;
+  myOBD[3].cmd_len=5;
+  sprintf(myOBD[3].cmd_name,"VTI\r\n");
+
+  myOBD[4].timer=10;
+  myOBD[4].cmd_len=5;
+  sprintf(myOBD[4].cmd_name,"ATD\r\n");
+
+  myOBD[5].timer=10;
+  myOBD[5].cmd_len=6;
+  sprintf(myOBD[5].cmd_name,"ATD0\r\n");
+
+  myOBD[6].timer=10;
+  myOBD[6].cmd_len=6;
+  sprintf(myOBD[6].cmd_name,"ATE0\r\n");
+
+  myOBD[7].timer=10;
+  myOBD[7].cmd_len=7;
+  sprintf(myOBD[7].cmd_name,"ATSP0\r\n");
+
+  myOBD[8].timer=10;
+  myOBD[8].cmd_len=6;
+  sprintf(myOBD[8].cmd_name,"ATE0\r\n");
+
+  myOBD[9].timer=10;
+  myOBD[9].cmd_len=6;
+  sprintf(myOBD[9].cmd_name,"ATH1\r\n");
+
+  myOBD[10].timer=10;
+  myOBD[10].cmd_len=6;
+  sprintf(myOBD[10].cmd_name,"ATM0\r\n");
+
+  myOBD[11].timer=10;
+  myOBD[11].cmd_len=6;
+  sprintf(myOBD[11].cmd_name,"ATS0\r\n");
+
+  myOBD[12].timer=10;
+  myOBD[12].cmd_len=7;
+  sprintf(myOBD[12].cmd_name,"ATST1\r\n");
+
+  myOBD[13].timer=10;
+  myOBD[13].cmd_len=6;
+  sprintf(myOBD[13].cmd_name,"ATAL\r\n");
+
+  myOBD[14].timer=10;
+  myOBD[14].cmd_len=8;
+  sprintf(myOBD[14].cmd_name,"ATST64\r\n");
+
+  myOBD[15].timer=10;
+  myOBD[15].cmd_len=7;
+  sprintf(myOBD[15].cmd_name,"ATDPN\r\n");
+#endif
 }
 void GetMacAddress(uint8 *p_Address)
 {
@@ -5599,7 +5682,10 @@ void BJJA_reconnect_4G()
   gMQTT_received_flag=0;
   g4G_connection_retry_count=1;
   g4GStatus = TELCOMM_STATUS_4G_NON_DETECTED;
-  UartMessage("AT+CFUN=1,1\r\n",strlen("AT+CFUN=1,1\r\n"));
+  SEND_LTE_M("AT+QMTCLOSE=0\r\n");
+  BJJA_LM_tick_wdt();
+  DELAY_US(1000*1000);
+  SEND_LTE_M("AT+CFUN=1,1\r\n");
   //HAL_Delay(1000*10);//wait for 4G init
   uint8_t i=0;
   for(i=0;i<10;i++)
@@ -5801,10 +5887,26 @@ void BJJA_LM_4G_early_init()
 {
   
   PRINT_DATA("4G early_init\r\n");
+
+  SEND_LTE_M("AT+QMTCLOSE=0\r\n");
+  BJJA_LM_tick_wdt();
+  DELAY_US(1000*1000);
+  SEND_LTE_M("AT+CFUN=1,1\r\n");
+
+  uint8_t i=0;
+  for(i=0;i<10;i++)
+  {
+    BJJA_LM_tick_wdt();
+    DELAY_US(1000*1000);
+  }
+  
   BJJA_LM_4G_mode();
   DELAY_US(50*1000);
   BJJA_LM_enable_gps();//todo:test,need remove
   DELAY_US(50*1000);
+
+  
+
   BJJA_LM_AWS_IoT_init();
   SEND_LTE_M("AT+QMTCFG=\"keepalive\",0,100\r\n");
   DELAY_US(50*1000);
