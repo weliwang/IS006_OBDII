@@ -1,0 +1,38 @@
+/**
+ * These arguments were used when this file was generated. They will be automatically applied on subsequent loads
+ * via the GUI or CLI. Run CLI with '--help' for additional information on how to override these arguments.
+ * @cliArgs --board "/ti/boards/CC1352R1_LAUNCHXL" --product "simplelink_cc13x2_26x2_sdk@5.20.00.52"
+ * @versions {"data":"2021060817","timestamp":"2021060817","tool":"1.8.2+1992","templates":null}
+ */
+
+/**
+ * Import the modules used in this configuration.
+ */
+const Display  = scripting.addModule("/ti/display/Display");
+const Display1 = Display.addInstance();
+const RTOS     = scripting.addModule("/ti/drivers/RTOS");
+const UART     = scripting.addModule("/ti/drivers/UART");
+const JSON     = scripting.addModule("/ti/utils/JSON");
+
+/**
+ * Write custom configuration values to the imported modules.
+ */
+Display1.$name                    = "CONFIG_Display_0";
+Display1.$hardware                = system.deviceData.board.components.XDS110UART;
+Display1.uart.$name               = "CONFIG_UART_0";
+Display1.uart.txPinInstance.$name = "CONFIG_PIN_0";
+Display1.uart.rxPinInstance.$name = "CONFIG_PIN_1";
+
+const CCFG              = scripting.addModule("/ti/devices/CCFG", {}, false);
+CCFG.ccfgTemplate.$name = "ti_devices_CCFGTemplate0";
+
+UART.uartImplementation = "UARTCC26X2";
+
+/**
+ * Pinmux solution for unlocked pins/peripherals. This ensures that minor changes to the automatic solver in a future
+ * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
+ * re-solve from scratch.
+ */
+Display1.uart.uart.$suggestSolution       = "UART1";
+Display1.uart.uart.txPin.$suggestSolution = "boosterpack.4";
+Display1.uart.uart.rxPin.$suggestSolution = "boosterpack.3";
