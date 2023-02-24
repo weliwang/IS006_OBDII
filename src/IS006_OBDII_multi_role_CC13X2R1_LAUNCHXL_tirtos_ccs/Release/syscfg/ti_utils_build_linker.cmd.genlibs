@@ -37,3 +37,9 @@
 -l"ti/grlib/lib/ccs/m4f/grlib.a"
 -l"ti/dpl/lib/ccs/m4f/dpl_cc13x2.a"
 
+/* libraries required for /ti/utils/json */
+-l"ti/utils/json/lib/ccs/m4f/json_release.a"
+
+/* libraries required for /ti/utils/runtime */
+-l"ti/utils/runtime/lib/ccs/m4f/runtime_release.a"
+

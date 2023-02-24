@@ -43,6 +43,7 @@ const UART        = scripting.addModule("/ti/drivers/UART", {}, false);
 const UART2       = UART.addInstance();
 const Watchdog    = scripting.addModule("/ti/drivers/Watchdog", {}, false);
 const Watchdog1   = Watchdog.addInstance();
+const JSON        = scripting.addModule("/ti/utils/JSON");
 
 /**
  * Write custom configuration values to the imported modules.

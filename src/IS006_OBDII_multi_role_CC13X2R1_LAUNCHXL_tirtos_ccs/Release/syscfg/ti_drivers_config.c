@@ -729,13 +729,13 @@ void Board_init(void)
     /* ==== /ti/drivers/Power initialization ==== */
     Power_init();
 
+    /* ==== /ti/devices/CCFGTemplate initialization ==== */
+
     /* ==== /ti/drivers/PIN initialization ==== */
     if (PIN_init(BoardGpioInitTable) != PIN_SUCCESS) {
         /* Error with PIN_init */
         while (1);
     }
-    /* ==== /ti/devices/CCFGTemplate initialization ==== */
-
     /* ==== /ti/drivers/RF initialization ==== */
 
 

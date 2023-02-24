@@ -128,4 +128,12 @@ digraph Model
     CONFIG_WATCHDOG_0 -> ti_drivers_Board
 
     // mod.$name=/ti/drivers/nvs/NVSCC26XX
+
+    // mod.$name=/ti/utils/JSON
+    ti_utils_JSON -> ti_utils_runtime_GetLibs
+
+    // mod.$name=/ti/utils/build/GenLibs
+
+    // mod.$name=/ti/utils/runtime/GetLibs
+    ti_utils_runtime_GetLibs -> ti_utils_build_GenLibs
 }

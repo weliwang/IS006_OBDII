@@ -347,6 +347,99 @@ static uint8 rpa[B_ADDR_LEN] = {0};
 // Initiating PHY
 static uint8_t mrInitPhy = INIT_PHY_1M;
 
+
+/**************add by weli begin for json function***********************/
+#include <ti/utils/json/json.h>
+#include <stdint.h>
+#include <stddef.h>
+#define REQUEST_SCHEMA                  \
+"{"                                     \
+  "\"commandId\": string,"              \
+  "\"command\": string,"                \
+  "\"uuid\":    string,"                \
+  "\"externalId\": string,"             \
+  "\"password\": string"                \
+"}"
+#define AUTHORIZE_SCHEMA                \
+"{"                                     \
+  "\"commandId\": string,"              \
+  "\"command\": string,"                \
+  "\"originalCommand\": string,"        \
+  "\"uuid\": string,"                   \
+  "\"externalId\": string"              \
+"}"
+#define RESPONSE_SCHEMA                 \
+"{"                                     \
+  "\"commandId\": string,"              \
+  "\"command\": string,"                \
+  "\"originalCommand\": string,"        \
+  "\"uuid\": string,"                   \
+  "\"externalId\": string,"             \
+  "\"payload\": string"                 \
+"}"
+#define RESPONSE_SCHEMA_UPLINK          \
+"{"                                     \
+  "\"commandId\": string,"              \
+  "\"command\": string,"                \
+  "\"uuid\": string,"                   \
+  "\"externalId\": string,"             \
+  "\"payload\": string"                 \
+"}"
+#define EXAMPLE_OF_REQUEST                              \
+"{"                                                     \
+  "\"commandId\": \"1q2z3er56\","                       \
+  "\"command\": \"GetStatus\","                          \
+  "\"externalId\": \"someidsuppliedbyapp\""             \
+"}"
+#define EXAMPLE_PASSWORD_OF_REQUEST                     \
+"{"                                                     \
+  "\"commandId\": \"1q2z3er56\","                       \
+  "\"command\": \"SetBLEPass\","                        \
+  "\"externalId\": \"someidsuppliedbyapp\","            \
+  "\"password\": \"123456\""                            \
+"}"
+
+#define EXAMPLE_OF_AUTHORIZE                            \
+"{"                                                     \
+  "\"commandId\": \"1q2z3er56\","                       \
+  "\"command\": \"Authorize\","                         \
+  "\"originalCommand\": \"OpenDoor\","                  \
+  "\"uuid\": \"112233445566\","                         \
+  "\"externalId\": \"someidsuppliedbyapp\""             \
+"}"
+#define EXAMPLE_OF_RESPONSE_UPLINK                      \
+"{"                                                     \
+  "\"commandId\": \"commandId\","                       \
+  "\"command\": \"command\","                   \
+  "\"uuid\": \"uuid\","                         \
+  "\"externalId\": \"externalId\""             \
+  "\"payload\": \"payload\""                           \
+"}"
+#define EXAMPLE_OF_RESPONSE                             \
+"{"                                                     \
+  "\"commandId\": \"1q2z3er56\","                       \
+  "\"command\": \"OpenDoorReponse\","                   \
+  "\"payload\": \"Rejected\""                           \
+"}"
+#define EXAMPLE_AUTHORIZE_OF_RESPONSE                   \
+"{"                                                     \
+  "\"commandId\": \"1q2z3er56\","                       \
+  "\"command\": \"Authorize\","                         \
+  "\"originalCommand\": \"OpenDoor\","                  \
+  "\"uuid\": \"112233445566\","                         \
+  "\"externalId\": \"someidsuppliedbyapp\","            \
+  "\"payload\": \"Rejected\""                           \
+"}"
+uint8_t BJJA_LM_create_json(Json_Handle *hLocalObject,Json_Handle *hLocalTemplate,char *json_schema,char *json_data);
+uint8_t BJJA_LM_json_get_token_data(Json_Handle *hLocalObject,uint8_t *ret_data,char *pKey);
+uint8_t BJJA_LM_json_set_token_data(Json_Handle *hLocalObject,uint8_t *set_value,char *pKey);
+uint8_t BJJA_LM_json_build(Json_Handle *hLocalObject,char *buffer,uint16_t jsonBufSize);
+uint8_t BJJA_LM_destory_json(Json_Handle *hTemplate,Json_Handle *hObject);
+/****************add by weli end for json function***********************
+
+
+
+
 /*********************************************************************
 * LOCAL FUNCTIONS
 */
@@ -4027,13 +4120,21 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
   //if(gEnableLog)
   //UartMessage("LTE-M>>",7);
   //UartMessage(serialBuffer,gSerialLen);
-  PRINT_DATA("from LTE-M>>%s\r\n",pBuf);
+  PRINT_DATA("from LTE-M>>%d>>%s\r\n",pBuf_len,pBuf);
   /*if(strncmp(serialBuffer,"AT+SKEY=?",strlen("AT+SKEY=?"))==0)
   {
     uint8_t data[24]={0x00};
     sprintf(data,"OK+SKEY=%d\r\n",gPasskey);
     UartMessage(data,strlen(data));
   }*/
+  char *my_ret;
+  my_ret = strstr(pBuf,"+QMTRECV:");
+  if(my_ret!=NULL)
+  {
+    parsing_mqtt_return_cmd(my_ret);
+    gProduceFlag=0;
+    return;
+  }
 
   //split token
   char * pch;
@@ -4200,6 +4301,7 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
     }
     else if(strncmp("+QMTRECV:",pch,9)==0)
     {
+#if 0
       //[Weli]received data:+QMTRECV: 1,0,"/flow4g/867160044718165/downlink/","12345678901234567890"
       //sprintf(gLogTmp,"[Weli]received data:%s\r\n",pch);
       //BJJA_write_data_LOG(gLogTmp,strlen(gLogTmp));
@@ -4220,6 +4322,18 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
         }
         my_test_count++;
       }
+#else
+      /*uint8_t i=0;
+      uint8_t my_test_count=0;
+      for(i=0;i<strlen(pch);i++)
+      {
+        if(pch[i]=='\"')
+          my_test_count++;
+        if(my_test_count==3)
+          parsing_mqtt_return_cmd(pch+(i+1));
+      }*/
+      //parsing_mqtt_return_cmd(pch);
+#endif
     }
     pch = strtok(NULL,delim);
   }
@@ -5268,7 +5382,7 @@ void BJJA_LM_init()
   
   Board_initUser2();
   //UartMessage2("Hello world\r\n",strlen("Hello world\r\n"));
-  PRINT_DATA("Ver:v1.0.4,Build Time:%s\r\n",__TIME__);
+  PRINT_DATA("Ver:v1.0.5,Build Time:%s\r\n",__TIME__);
   BJJA_LM_load_default_setting();
   
   BJJA_LM_read_flash();
@@ -5717,6 +5831,20 @@ void parsing_mqtt_return_cmd(uint8_t *data)
 {
   PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
   PRINT_DATA("MQTT DATA:[%s]\r\n",data);
+  char *pch = strstr(data,"{");
+  char my_data[512]={0x00};
+  uint8_t i=0;
+  for(i=0;i<strlen(pch);i++)
+  {
+    if(pch[i]=='}')
+    {
+      break;
+    }
+  }
+  memcpy(my_data,pch,i+1);
+  PRINT_DATA("pre-process DATA:[%s]\r\n",my_data);
+
+#if 0
   if(strncmp(data,"AT+Door=",strlen("AT+Door="))==0)
   {
     if(data[8]=='0')
@@ -5799,6 +5927,65 @@ void parsing_mqtt_return_cmd(uint8_t *data)
       send_mqtt_cmd("FAIL+ChangeUploadInterval\r\n"); 
     }
   }
+#else
+  uint16_t jsonBufSize=1024;
+  static char jsonBuf[1024];  /* max string to hold serialized JSON buffer */
+  Json_Handle hTemplate;
+  Json_Handle hObject;
+  BJJA_LM_create_json(&hObject,&hTemplate,REQUEST_SCHEMA,my_data);
+  char token_data[255]={0x00};
+
+  Json_Handle hTemplate_response;
+  Json_Handle hObject_response;
+  BJJA_LM_create_json(&hObject_response,&hTemplate_response,RESPONSE_SCHEMA_UPLINK,EXAMPLE_OF_RESPONSE_UPLINK);
+
+
+  uint8_t my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"command\"");
+  if(my_ret)
+  {
+    if(strncmp(token_data,"GetStatus",strlen("GetStatus"))==0)
+    {
+      BJJA_LM_json_set_token_data(&hObject_response,"GetStatusResponse","\"command\"");  
+      memset(token_data,0x00,sizeof(token_data));
+      
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"commandId\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"commandId\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"uuid\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"uuid\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"externalId\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"externalId\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+      sprintf(token_data,"%d,%d,%d,%s",/*"weli",12300,32,0,"N,E"*/gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State,gLastGpsLat);
+      BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"payload\"");
+
+      
+      BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      send_mqtt_cmd(jsonBuf);
+    }
+    
+    
+  }
+  
+
+  
+  
+
+#endif
 
 }
 void BJJA_LM_enable_gps()
@@ -5861,7 +6048,8 @@ void send_mqtt_test_cmd(uint8_t *mylocaldata,uint8 gps_en)
 {
   PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
 #if 1
-  if(gps_en)
+  //if(gps_en)
+  if(1)//add by weli 20221121 customer require,when acc off,still upload gps
   {
     BJJA_LM_read_gps();
   }
@@ -6289,3 +6477,119 @@ void BJJA_LM_parsing_OBDII_data(uint8 *data,uint8 len)
     }
   }
 }
+/**************add by weli begin for json function***********************/
+uint8_t BJJA_LM_create_json(Json_Handle *hLocalObject,Json_Handle *hLocalTemplate,char *json_schema,char *json_data)
+{
+    int16_t retVal;
+    /* create a template from a buffer containing a template */
+    retVal = Json_createTemplate(hLocalTemplate, json_schema,
+            strlen(json_schema));
+    if (retVal != 0) {
+        PRINT_DATA("Error creating the JSON template\r\n");
+        return 0;
+    }
+    else {
+        PRINT_DATA("JSON template created\r\n");
+    }
+
+    /* create a default-sized JSON object from the template */
+    retVal = Json_createObject(hLocalObject, *hLocalTemplate, 0);
+    if (retVal != 0) 
+    {
+        PRINT_DATA("Error creating JSON object\r\n");
+        return 0;
+    }
+    else 
+    {
+        PRINT_DATA("JSON object created from template\r\n");
+    }
+
+    /* parse EXAMPLE_JSONBUF */
+    retVal = Json_parse(*hLocalObject, json_data, strlen(json_data));
+    if (retVal != 0) 
+    {
+        PRINT_DATA("Error parsing the JSON buffer\r\n");
+        return 0;
+    }
+    else 
+    {
+        PRINT_DATA("JSON buffer parsed\r\n");
+    }
+
+
+    return 1;
+
+}
+uint8_t BJJA_LM_json_get_token_data(Json_Handle *hLocalObject,uint8_t *ret_data,char *pKey)
+{
+    void *valueBuf;
+    int16_t retVal;
+    uint16_t valueSize;
+    uint16_t jsonBufSize;
+    retVal = Json_getValue(*hLocalObject, pKey, NULL, &valueSize);
+    if (retVal != 0) 
+    {
+        //Display_printf(display, 0, 0, "Error getting the %s buffer size",pKey);
+        return 0;
+    }
+    else 
+    {
+        //Display_printf(display, 0, 0, "%s buffer size: %d\n", pKey, valueSize);
+    }
+
+    valueBuf = calloc(1, valueSize + 1);
+    retVal = Json_getValue(*hLocalObject, pKey, valueBuf, &valueSize);
+    if (retVal != 0) 
+    {
+        //Display_printf(display, 0, 0, "Error getting the %s value",pKey);
+        return 0;
+    }
+    else 
+    {
+        //Display_printf(display, 0, 0, "JSON buffer parsed, %s: %s\n",pKey,valueBuf);
+    }
+    memcpy(ret_data,valueBuf,valueSize);
+    free(valueBuf);
+    return 1;
+
+}
+uint8_t BJJA_LM_json_set_token_data(Json_Handle *hLocalObject,uint8_t *set_value,char *pKey)
+{
+    int16_t retVal;
+    //retVal = Json_getValue(hObject, "\"age\"", &age, &valueSize);
+    retVal = Json_setValue(*hLocalObject, pKey, set_value, strlen(set_value));
+    if (retVal != 0) 
+    {
+        PRINT_DATA("Error setting the age value\r\n");
+        return 0;
+    }
+    return 1;
+
+}
+uint8_t BJJA_LM_json_build(Json_Handle *hLocalObject,char *buffer,uint16_t jsonBufSize)
+{
+    int16_t retVal = Json_build(*hLocalObject, buffer, &jsonBufSize);
+    if (retVal != 0) 
+    {
+        PRINT_DATA("Error serializing JSON data\r\n");
+        return 0;
+    }
+    else 
+    {
+        PRINT_DATA("serialized data:\n%s\r\n", buffer);
+        return 1;
+    }
+}
+uint8_t BJJA_LM_destory_json(Json_Handle *hTemplate,Json_Handle *hObject)
+{
+    int16_t retVal =0;
+    /* done, cleanup */
+    retVal = Json_destroyObject(*hObject);
+
+    retVal = Json_destroyTemplate(*hTemplate);
+
+    PRINT_DATA("Finished JSON example\r\n");
+    return 1;
+}
+
+/**************add by weli begin for json function***********************/
