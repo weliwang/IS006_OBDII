@@ -352,6 +352,34 @@ static uint8_t mrInitPhy = INIT_PHY_1M;
 #include <ti/utils/json/json.h>
 #include <stdint.h>
 #include <stddef.h>
+#define MQTT_DOWNLINK_SCHEMA            \
+"{"                                     \
+  "\"commandId\": string,"              \
+  "\"command\": string,"                \
+  "\"uuid\":    string,"                \
+  "\"externalId\": string,"             \
+  "\"password\": string,"               \
+  "\"originalCommand\": string,"        \
+  "\"payload\": string"                 \
+"}"
+
+#define MQTT_UPLINK_REQUEST_SCHEMA      \
+"{"                                     \
+  "\"commandId\": string,"              \
+  "\"command\": string,"                \
+  "\"uuid\":    string,"                \
+  "\"externalId\": string"             \
+"}"
+
+#define BLE_RESPONSE_SCHEMA             \
+"{"                                     \
+  "\"commandId\": string,"              \
+  "\"command\": string,"                \
+  "\"externalId\": string,"             \
+  "\"payload\": string"                \
+"}"
+
+
 #define REQUEST_SCHEMA                  \
 "{"                                     \
   "\"commandId\": string,"              \
@@ -435,6 +463,8 @@ uint8_t BJJA_LM_json_get_token_data(Json_Handle *hLocalObject,uint8_t *ret_data,
 uint8_t BJJA_LM_json_set_token_data(Json_Handle *hLocalObject,uint8_t *set_value,char *pKey);
 uint8_t BJJA_LM_json_build(Json_Handle *hLocalObject,char *buffer,uint16_t jsonBufSize);
 uint8_t BJJA_LM_destory_json(Json_Handle *hTemplate,Json_Handle *hObject);
+uint8_t BJJA_LM_Json_cmd_parsing_from_BLE(char *buf);
+uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf);
 /****************add by weli end for json function***********************
 
 
@@ -2443,7 +2473,11 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
 
     case SIMPLEPROFILE_CHAR3:
       SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, charValue3);
-      if(strncmp(charValue3,"AT+ARM",strlen("AT+ARM"))==0)
+      if(BJJA_LM_Json_cmd_parsing_from_BLE(charValue3)==0)
+      {
+        PRINT_DATA("Json command by BLE\r\n");
+      }
+      else if(strncmp(charValue3,"AT+ARM",strlen("AT+ARM"))==0)
       {
         /*
         //SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen("thx for all cansec fans,Weli,amy is baga.") ,"thx for all cansec fans,Weli,amy is baga.");//weli add
@@ -5928,58 +5962,7 @@ void parsing_mqtt_return_cmd(uint8_t *data)
     }
   }
 #else
-  uint16_t jsonBufSize=1024;
-  static char jsonBuf[1024];  /* max string to hold serialized JSON buffer */
-  Json_Handle hTemplate;
-  Json_Handle hObject;
-  BJJA_LM_create_json(&hObject,&hTemplate,REQUEST_SCHEMA,my_data);
-  char token_data[255]={0x00};
-
-  Json_Handle hTemplate_response;
-  Json_Handle hObject_response;
-  BJJA_LM_create_json(&hObject_response,&hTemplate_response,RESPONSE_SCHEMA_UPLINK,EXAMPLE_OF_RESPONSE_UPLINK);
-
-
-  uint8_t my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"command\"");
-  if(my_ret)
-  {
-    if(strncmp(token_data,"GetStatus",strlen("GetStatus"))==0)
-    {
-      BJJA_LM_json_set_token_data(&hObject_response,"GetStatusResponse","\"command\"");  
-      memset(token_data,0x00,sizeof(token_data));
-      
-      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"commandId\"");
-      if(my_ret)
-      {
-        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"commandId\"");
-      }
-      memset(token_data,0x00,sizeof(token_data));
-
-      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"uuid\"");
-      if(my_ret)
-      {
-        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"uuid\"");
-      }
-      memset(token_data,0x00,sizeof(token_data));
-
-      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"externalId\"");
-      if(my_ret)
-      {
-        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"externalId\"");
-      }
-      memset(token_data,0x00,sizeof(token_data));
-      sprintf(token_data,"%d,%d,%d,%s",/*"weli",12300,32,0,"N,E"*/gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State,gLastGpsLat);
-      BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"payload\"");
-
-      
-      BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
-      BJJA_LM_destory_json(&hTemplate,&hObject);
-      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
-      send_mqtt_cmd(jsonBuf);
-    }
-    
-    
-  }
+  BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(my_data);
   
 
   
@@ -6591,5 +6574,239 @@ uint8_t BJJA_LM_destory_json(Json_Handle *hTemplate,Json_Handle *hObject)
     PRINT_DATA("Finished JSON example\r\n");
     return 1;
 }
+uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
+{
+  uint16_t jsonBufSize=1024;
+  static char jsonBuf[1024];  /* max string to hold serialized JSON buffer */
+  Json_Handle hTemplate;
+  Json_Handle hObject;
+  BJJA_LM_create_json(&hObject,&hTemplate,MQTT_DOWNLINK_SCHEMA,buf);
+  char token_data[255]={0x00};
 
+  Json_Handle hTemplate_response;
+  Json_Handle hObject_response;  
+  uint8_t my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"command\"");
+  if(my_ret)
+  {
+    if(strncmp(token_data,"GetStatus",strlen("GetStatus"))==0)
+    {
+      BJJA_LM_create_json(&hObject_response,&hTemplate_response,RESPONSE_SCHEMA_UPLINK,EXAMPLE_OF_RESPONSE_UPLINK);
+
+      BJJA_LM_json_set_token_data(&hObject_response,"GetStatusResponse","\"command\"");  
+      memset(token_data,0x00,sizeof(token_data));
+      
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"commandId\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"commandId\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"uuid\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"uuid\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"externalId\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"externalId\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+      sprintf(token_data,"%d,%d,%d,%s",/*"weli",12300,32,0,"N,E"*/gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State,gLastGpsLat);
+      BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"payload\"");
+
+      
+      BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      send_mqtt_cmd(jsonBuf);
+      return 0;
+    }
+    else if(strncmp(token_data,"Authorize",strlen("Authorize"))==0)
+    {
+      memset(token_data,0x00,sizeof(token_data));
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"payload\"");
+      if(my_ret)
+      {
+        if(strncmp(token_data,"Accepted",strlen("Accepted"))==0)
+        {
+          //todo send request command to MQTT broker.
+          BJJA_LM_create_json(&hObject_response,&hTemplate_response,MQTT_UPLINK_REQUEST_SCHEMA,EXAMPLE_OF_RESPONSE);
+          BJJA_LM_json_set_token_data(&hObject_response,Util_convertBdAddr2Str(connList[0].addr),"\"uuid\"");  
+          memset(token_data,0x00,sizeof(token_data));
+
+          my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"originalCommand\"");
+          if(my_ret)
+          {
+            BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"command\"");
+          }
+          memset(token_data,0x00,sizeof(token_data));
+
+          my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"externalId\"");
+          if(my_ret)
+          {
+            BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"externalId\"");
+          }
+          memset(token_data,0x00,sizeof(token_data));
+
+          my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"commandId\"");
+          if(my_ret)
+          {
+            BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"commandId\"");
+          }
+          memset(token_data,0x00,sizeof(token_data));
+
+          //todo original command.
+          BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
+          send_mqtt_cmd(jsonBuf);
+
+        }
+        else if(strncmp(token_data,"Rejected",strlen("Rejected"))==0)
+        {
+          //send ble command to smart phone
+          BJJA_LM_create_json(&hObject_response,&hTemplate_response,BLE_RESPONSE_SCHEMA,EXAMPLE_OF_RESPONSE);
+          BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"payload\"");
+          memset(token_data,0x00,sizeof(token_data));
+      
+          my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"commandId\"");
+          if(my_ret)
+          {
+            BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"commandId\"");
+          }
+          memset(token_data,0x00,sizeof(token_data));
+
+          my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"originalCommand\"");
+          if(my_ret)
+          {
+            char cmd_response[64]={0x00};
+            sprintf(cmd_response,"%sResponse",token_data);
+            BJJA_LM_json_set_token_data(&hObject_response,cmd_response,"\"command\"");
+          }
+          memset(token_data,0x00,sizeof(token_data));
+          BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
+          //send to ble
+          SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(jsonBuf) ,jsonBuf);
+        }
+      }
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      return 0;
+    }//end of Authorize
+    else if(strncmp(token_data,"OpenDoorReponse",strlen("OpenDoorReponse"))==0)
+    {
+      memset(token_data,0x00,sizeof(token_data));
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"payload\"");
+      if(my_ret)
+      {
+        if(strncmp(token_data,"Accepted",strlen("Accepted"))==0)
+        {
+           //todo door open
+          //BJJA_LM_control_door_function(0);//lock test
+          BJJA_LM_control_door_function(1);//unlock test
+        }
+        else if(strncmp(token_data,"Rejected",strlen("Rejected"))==0)
+        {
+          //rejected
+        }
+        PRINT_DATA("send to BLE:%s\r\n",buf);
+        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(buf) ,buf);
+      }
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      return 0;
+    }//end of OpenDoorResponse
+
+
+
+  }
+  return 1;
+}
+uint8_t BJJA_LM_Json_cmd_parsing_from_BLE(char *buf)
+{
+  uint16_t jsonBufSize=1024;
+  static char jsonBuf[1024];  /* max string to hold serialized JSON buffer */
+  Json_Handle hTemplate;
+  Json_Handle hObject;
+  BJJA_LM_create_json(&hObject,&hTemplate,REQUEST_SCHEMA,buf);
+  char token_data[255]={0x00};
+
+  Json_Handle hTemplate_authorize;
+  Json_Handle hObject_authorize;
+  BJJA_LM_create_json(&hObject_authorize,&hTemplate_authorize,AUTHORIZE_SCHEMA,EXAMPLE_OF_AUTHORIZE);
+
+
+  uint8_t my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"command\"");
+  if(my_ret)
+  {
+    BJJA_LM_json_set_token_data(&hObject_authorize,"Authorize","\"command\"");  
+    BJJA_LM_json_set_token_data(&hObject_authorize,Util_convertBdAddr2Str(connList[0].addr),"\"uuid\"");  
+
+    BJJA_LM_json_set_token_data(&hObject_authorize,token_data,"\"originalCommand\"");  
+    memset(token_data,0x00,sizeof(token_data));
+
+    my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"commandId\"");
+    if(my_ret)
+    {
+      BJJA_LM_json_set_token_data(&hObject_authorize,token_data,"\"commandId\"");  
+    }
+    memset(token_data,0x00,sizeof(token_data));
+    
+    my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"externalId\"");
+    if(my_ret)
+    {
+      BJJA_LM_json_set_token_data(&hObject_authorize,token_data,"\"externalId\"");  
+    }
+    memset(token_data,0x00,sizeof(token_data));  
+
+    BJJA_LM_json_build(&hObject_authorize,jsonBuf,jsonBufSize);
+    BJJA_LM_destory_json(&hTemplate,&hObject);
+    BJJA_LM_destory_json(&hTemplate_authorize,&hObject_authorize);
+    send_mqtt_cmd(jsonBuf);
+    return 0;
+  }
+  return 1;
+  
+
+#if 0
+    if(strncmp(token_data,"GetStatus",strlen("GetStatus"))==0)
+    {
+      BJJA_LM_json_set_token_data(&hObject_response,"GetStatusResponse","\"command\"");  
+      memset(token_data,0x00,sizeof(token_data));
+      
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"commandId\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"commandId\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"uuid\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"uuid\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"externalId\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"externalId\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+      sprintf(token_data,"%d,%d,%d,%s",/*"weli",12300,32,0,"N,E"*/gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State,gLastGpsLat);
+      BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"payload\"");
+
+      
+      BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      send_mqtt_cmd(jsonBuf);
+    } 
+  }
+#endif
+  
+}
 /**************add by weli begin for json function***********************/
