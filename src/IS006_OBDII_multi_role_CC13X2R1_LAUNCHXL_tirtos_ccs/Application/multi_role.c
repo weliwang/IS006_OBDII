@@ -6741,6 +6741,31 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
       BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
       return 0;
     }//end of CloseDoorResponse
+    else if(strncmp(token_data,"OpenDoorAndDisarmReponse",strlen("OpenDoorAndDisarmReponse"))==0)
+    {
+      memset(token_data,0x00,sizeof(token_data));
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"payload\"");
+      if(my_ret)
+      {
+        if(strncmp(token_data,"Accepted",strlen("Accepted"))==0)
+        {
+           //door unlock
+          BJJA_LM_control_door_function(1);//unlock test
+          //disarm
+          gArm_Disarm_command=2;//disarm
+
+        }
+        else if(strncmp(token_data,"Rejected",strlen("Rejected"))==0)
+        {
+          //rejected
+        }
+        PRINT_DATA("send to BLE:%s\r\n",buf);
+        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(buf) ,buf);
+      }
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      return 0;
+    }//end of OpenDoorAndDisarmReponse
 
 
 
