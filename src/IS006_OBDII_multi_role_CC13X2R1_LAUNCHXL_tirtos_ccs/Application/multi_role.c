@@ -6598,6 +6598,33 @@ uint8_t BJJA_LM_destory_json(Json_Handle *hTemplate,Json_Handle *hObject)
     PRINT_DATA("Finished JSON example\r\n");
     return 1;
 }
+void BJJA_LM_OpenDoor()
+{
+  //BJJA_LM_control_door_function(0);//lock test
+  BJJA_LM_control_door_function(1);//unlock test
+}
+void BJJA_LM_OpenDoorAndDisarm()
+{
+  //door unlock
+  BJJA_LM_control_door_function(1);//unlock test
+  //disarm
+  gArm_Disarm_command=2;//disarm
+}
+void BJJA_LM_CloseDoor()
+{
+  BJJA_LM_control_door_function(0);//lock test
+  //BJJA_LM_control_door_function(1);//unlock test
+}
+void BJJA_LM_Disarm()
+{
+  //disarm
+  gArm_Disarm_command=2;//disarm
+}
+void BJJA_LM_Arm()
+{
+  //disarm
+  gArm_Disarm_command=1;//arm
+}
 uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
 {
   uint16_t jsonBufSize=1024;
@@ -6649,6 +6676,67 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
       send_mqtt_cmd(jsonBuf);
       return 0;
     }
+    else if(strncmp(token_data,"OpenDoor",strlen("OpenDoor"))==0 ||
+            strncmp(token_data,"OpenDoorAndDisarm",strlen("OpenDoorAndDisarm"))==0 ||
+            strncmp(token_data,"CloseDoor",strlen("CloseDoor"))==0 ||
+            strncmp(token_data,"Disarm",strlen("Disarm"))==0 ||
+            strncmp(token_data,"Arm",strlen("Arm"))==0 )
+    {
+      uint8_t ret=0;
+      BJJA_LM_create_json(&hObject_response,&hTemplate_response,MQTT_PERIODIC_UPLOAD_SCHEMA,EXAMPLE_OF_RESPONSE);
+      if(strncmp(token_data,"OpenDoorAndDisarm",strlen("OpenDoorAndDisarm"))==0)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,"OpenDoorAndDisarmResponse","\"command\"");  
+        BJJA_LM_OpenDoorAndDisarm();
+      }
+      else if(strncmp(token_data,"OpenDoor",strlen("OpenDoor"))==0)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,"OpenDoorResponse","\"command\"");  
+        BJJA_LM_OpenDoor();
+        
+      }
+      else if(strncmp(token_data,"CloseDoor",strlen("CloseDoor"))==0)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,"CloseDoorResponse","\"command\"");  
+        BJJA_LM_CloseDoor();
+      }
+      else if(strncmp(token_data,"Disarm",strlen("Disarm"))==0)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,"DisarmResponse","\"command\"");  
+        BJJA_LM_Disarm();
+      }
+      else if(strncmp(token_data,"Arm",strlen("Arm"))==0)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,"ArmResponse","\"command\"");  
+        if(BJJA_LM_check_INGI()==1)
+          ret=1;
+        else
+          BJJA_LM_Arm();
+      }
+      
+      memset(token_data,0x00,sizeof(token_data));
+      
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"commandId\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"commandId\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+      if(ret)
+        BJJA_LM_json_set_token_data(&hObject_response,"Rejected","\"payload\"");
+      else
+        BJJA_LM_json_set_token_data(&hObject_response,"Accepted","\"payload\"");
+
+      
+      BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+
+      
+
+      send_mqtt_cmd(jsonBuf);
+      return 0;
+    }
     else if(strncmp(token_data,"Authorize",strlen("Authorize"))==0)
     {
       memset(token_data,0x00,sizeof(token_data));
@@ -6663,30 +6751,23 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
           {
             if(strncmp(token_data,"OpenDoorResponse",strlen("OpenDoorResponse"))==0)
             {
-              //BJJA_LM_control_door_function(0);//lock test
-              BJJA_LM_control_door_function(1);//unlock test
+              BJJA_LM_OpenDoor();
             }
             else if(strncmp(token_data,"OpenDoorAndDisarmResponse",strlen("OpenDoorAndDisarmResponse"))==0)
             {
-              //door unlock
-              BJJA_LM_control_door_function(1);//unlock test
-              //disarm
-              gArm_Disarm_command=2;//disarm
+              BJJA_LM_OpenDoorAndDisarm();
             }
             else if(strncmp(token_data,"CloseDoorResponse",strlen("CloseDoorResponse"))==0)
             {
-              BJJA_LM_control_door_function(0);//lock test
-              //BJJA_LM_control_door_function(1);//unlock test
+              BJJA_LM_CloseDoor();
             }
             else if(strncmp(token_data,"DisarmResponse",strlen("DisarmResponse"))==0)
             {
-              //disarm
-              gArm_Disarm_command=2;//disarm
+              BJJA_LM_Disarm();
             }
             else if(strncmp(token_data,"ArmResponse",strlen("ArmResponse"))==0)
             {
-              //disarm
-              gArm_Disarm_command=1;//arm
+              BJJA_LM_Arm();
             }
           }
 
