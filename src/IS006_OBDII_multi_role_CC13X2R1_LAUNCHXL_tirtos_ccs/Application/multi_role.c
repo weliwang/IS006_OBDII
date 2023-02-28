@@ -352,6 +352,12 @@ static uint8_t mrInitPhy = INIT_PHY_1M;
 #include <ti/utils/json/json.h>
 #include <stdint.h>
 #include <stddef.h>
+#define MQTT_PERIODIC_UPLOAD_SCHEMA     \
+"{"                                     \
+  "\"commandId\": string,"              \
+  "\"command\": string,"                \
+  "\"payload\": string"                 \
+"}"
 #define MQTT_DOWNLINK_SCHEMA            \
 "{"                                     \
   "\"commandId\": string,"              \
@@ -419,6 +425,12 @@ static uint8_t mrInitPhy = INIT_PHY_1M;
   "\"command\": \"GetStatus\","                          \
   "\"externalId\": \"someidsuppliedbyapp\""             \
 "}"
+#define EXAMPLE_OF_MQTT_PERIODIC_UPLOAD                 \
+"{"                                                     \
+  "\"commandId\": \"\","                                \
+  "\"command\": \"PeriodicStatusResponse\","            \
+  "\"payload\": \"Rejected \""                          \
+"}"
 #define EXAMPLE_PASSWORD_OF_REQUEST                     \
 "{"                                                     \
   "\"commandId\": \"1q2z3er56\","                       \
@@ -465,6 +477,7 @@ uint8_t BJJA_LM_json_build(Json_Handle *hLocalObject,char *buffer,uint16_t jsonB
 uint8_t BJJA_LM_destory_json(Json_Handle *hTemplate,Json_Handle *hObject);
 uint8_t BJJA_LM_Json_cmd_parsing_from_BLE(char *buf);
 uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf);
+uint8_t BJJA_LM_Json_periodic_upload_mqtt(char *buf);
 /****************add by weli end for json function***********************
 
 
@@ -6051,10 +6064,13 @@ void send_mqtt_test_cmd(uint8_t *mylocaldata,uint8 gps_en)
   
   //snprintf(mylog_s,"GPS:%s\r\n",gLastGpsLat);
 
-
+#if 0
   SEND_LTE_M("AT+QMTPUB=0,0,0,0,\"/AVIS/%02x%02x%02x%02x%02x%02x/uplink\",%d\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5],/*strlen(mylocaldata)*/strlen(msg));
   DELAY_US(30*1000);
   SEND_LTE_M("%s",msg/*mylocaldata*/);
+#else
+    BJJA_LM_Json_periodic_upload_mqtt(msg);
+#endif
   //SEND_LTE_M(mylog_s);
 #endif
   PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
@@ -6131,7 +6147,11 @@ void BJJA_LM_1S_worker()
     gFirst_boot=0;
     uint8_t mydata[64]={0x00};
     sprintf(mydata,"+EVT_MB_POWER_ON:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
+#if 0    
     send_mqtt_cmd(mydata);
+#else
+    BJJA_LM_Json_periodic_upload_mqtt(mydata);
+#endif
   }
 #if 1
   if(g4GStatus == TELCOMM_STATUS_ONLINE && gACC_ON_OFF_flag>0)
@@ -6147,7 +6167,11 @@ void BJJA_LM_1S_worker()
       sprintf(mydata,"+EVT_DISARM:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
     else if(gACC_ON_OFF_flag==5)//update DISARM state
       sprintf(mydata,"+EVT_DOOR:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
+#if 0    
     send_mqtt_cmd(mydata);
+#else
+    BJJA_LM_Json_periodic_upload_mqtt(mydata);
+#endif
     gACC_ON_OFF_flag=0;
   }
 #endif
@@ -6872,6 +6896,20 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
 
   }
   return 1;
+}
+uint8_t BJJA_LM_Json_periodic_upload_mqtt(char *buf)
+{
+  uint16_t jsonBufSize=1024;
+  static char jsonBuf[1024];  /* max string to hold serialized JSON buffer */
+  Json_Handle hTemplate;
+  Json_Handle hObject;
+  BJJA_LM_create_json(&hObject,&hTemplate,MQTT_PERIODIC_UPLOAD_SCHEMA,EXAMPLE_OF_MQTT_PERIODIC_UPLOAD);
+  char token_data[255]={0x00};
+  BJJA_LM_json_set_token_data(&hObject,buf,"\"payload\"");  
+  BJJA_LM_json_build(&hObject,jsonBuf,jsonBufSize);
+  BJJA_LM_destory_json(&hTemplate,&hObject);
+  send_mqtt_cmd(jsonBuf);
+  return 0;
 }
 uint8_t BJJA_LM_Json_cmd_parsing_from_BLE(char *buf)
 {
