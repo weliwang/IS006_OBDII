@@ -6634,6 +6634,61 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
         if(strncmp(token_data,"Accepted",strlen("Accepted"))==0)
         {
           //todo send request command to MQTT broker.
+          my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"originalCommand\"");
+          if(my_ret)
+          {
+            if(strncmp(token_data,"OpenDoorResponse",strlen("OpenDoorResponse"))==0)
+            {
+              //BJJA_LM_control_door_function(0);//lock test
+              BJJA_LM_control_door_function(1);//unlock test
+            }
+            else if(strncmp(token_data,"OpenDoorAndDisarmResponse",strlen("OpenDoorAndDisarmResponse"))==0)
+            {
+              //door unlock
+              BJJA_LM_control_door_function(1);//unlock test
+              //disarm
+              gArm_Disarm_command=2;//disarm
+            }
+            else if(strncmp(token_data,"CloseDoorResponse",strlen("CloseDoorResponse"))==0)
+            {
+              BJJA_LM_control_door_function(0);//lock test
+              //BJJA_LM_control_door_function(1);//unlock test
+            }
+            else if(strncmp(token_data,"DisarmResponse",strlen("DisarmResponse"))==0)
+            {
+              //disarm
+              gArm_Disarm_command=2;//disarm
+            }
+            else if(strncmp(token_data,"ArmResponse",strlen("ArmResponse"))==0)
+            {
+              //disarm
+              gArm_Disarm_command=1;//arm
+            }
+          }
+
+        }
+        else if(strncmp(token_data,"Rejected",strlen("Rejected"))==0)
+        {
+          ;
+        }
+      }
+      //set to ble
+      SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(buf) ,buf);
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      //BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      return 0;
+    }//end of Authorize
+
+#if 0
+    else if(strncmp(token_data,"Authorize",strlen("Authorize"))==0)
+    {
+      memset(token_data,0x00,sizeof(token_data));
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"payload\"");
+      if(my_ret)
+      {
+        if(strncmp(token_data,"Accepted",strlen("Accepted"))==0)
+        {
+          //todo send request command to MQTT broker.
           BJJA_LM_create_json(&hObject_response,&hTemplate_response,MQTT_UPLINK_REQUEST_SCHEMA,EXAMPLE_OF_RESPONSE);
           BJJA_LM_json_set_token_data(&hObject_response,Util_convertBdAddr2Str(connList[0].addr),"\"uuid\"");  
           memset(token_data,0x00,sizeof(token_data));
@@ -6695,7 +6750,7 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
       BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
       return 0;
     }//end of Authorize
-    else if(strncmp(token_data,"OpenDoorReponse",strlen("OpenDoorReponse"))==0)
+    else if(strncmp(token_data,"OpenDoorResponse",strlen("OpenDoorResponse"))==0)
     {
       memset(token_data,0x00,sizeof(token_data));
       my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"payload\"");
@@ -6718,7 +6773,7 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
       BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
       return 0;
     }//end of OpenDoorResponse
-    else if(strncmp(token_data,"CloseDoorReponse",strlen("CloseDoorReponse"))==0)
+    else if(strncmp(token_data,"CloseDoorResponse",strlen("CloseDoorResponse"))==0)
     {
       memset(token_data,0x00,sizeof(token_data));
       my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"payload\"");
@@ -6741,7 +6796,7 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
       BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
       return 0;
     }//end of CloseDoorResponse
-    else if(strncmp(token_data,"OpenDoorAndDisarmReponse",strlen("OpenDoorAndDisarmReponse"))==0)
+    else if(strncmp(token_data,"OpenDoorAndDisarmResponse",strlen("OpenDoorAndDisarmResponse"))==0)
     {
       memset(token_data,0x00,sizeof(token_data));
       my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"payload\"");
@@ -6766,7 +6821,53 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
       BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
       return 0;
     }//end of OpenDoorAndDisarmReponse
+    else if(strncmp(token_data,"DisarmResponse",strlen("DisarmResponse"))==0)
+    {
+      memset(token_data,0x00,sizeof(token_data));
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"payload\"");
+      if(my_ret)
+      {
+        if(strncmp(token_data,"Accepted",strlen("Accepted"))==0)
+        {
+          //disarm
+          gArm_Disarm_command=2;//disarm
 
+        }
+        else if(strncmp(token_data,"Rejected",strlen("Rejected"))==0)
+        {
+          //rejected
+        }
+        PRINT_DATA("send to BLE:%s\r\n",buf);
+        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(buf) ,buf);
+      }
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      return 0;
+    }//end of DisarmReponse
+    else if(strncmp(token_data,"ArmResponse",strlen("ArmResponse"))==0)
+    {
+      memset(token_data,0x00,sizeof(token_data));
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"payload\"");
+      if(my_ret)
+      {
+        if(strncmp(token_data,"Accepted",strlen("Accepted"))==0)
+        {
+          //disarm
+          gArm_Disarm_command=1;//arm
+
+        }
+        else if(strncmp(token_data,"Rejected",strlen("Rejected"))==0)
+        {
+          //rejected
+        }
+        PRINT_DATA("send to BLE:%s\r\n",buf);
+        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(buf) ,buf);
+      }
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      return 0;
+    }//end of ArmReponse
+#endif
 
 
   }
@@ -6778,9 +6879,9 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_BLE(char *buf)
   static char jsonBuf[1024];  /* max string to hold serialized JSON buffer */
   Json_Handle hTemplate;
   Json_Handle hObject;
-  BJJA_LM_create_json(&hObject,&hTemplate,REQUEST_SCHEMA,buf);
+  BJJA_LM_create_json(&hObject,&hTemplate,AUTHORIZE_SCHEMA,buf);
   char token_data[255]={0x00};
-
+#if 0
   Json_Handle hTemplate_authorize;
   Json_Handle hObject_authorize;
   BJJA_LM_create_json(&hObject_authorize,&hTemplate_authorize,AUTHORIZE_SCHEMA,EXAMPLE_OF_AUTHORIZE);
@@ -6815,6 +6916,17 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_BLE(char *buf)
     send_mqtt_cmd(jsonBuf);
     return 0;
   }
+#else
+  uint8_t my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"command\"");
+  if(my_ret && strncmp(token_data,"Authorize",strlen("Authorize"))==0)
+  {
+    BJJA_LM_json_set_token_data(&hObject,Util_convertBdAddr2Str(connList[0].addr),"\"uuid\"");  
+    BJJA_LM_json_build(&hObject,jsonBuf,jsonBufSize);
+    BJJA_LM_destory_json(&hTemplate,&hObject);
+    send_mqtt_cmd(jsonBuf);
+    return 0;
+  }
+#endif
   return 1;
   
 
