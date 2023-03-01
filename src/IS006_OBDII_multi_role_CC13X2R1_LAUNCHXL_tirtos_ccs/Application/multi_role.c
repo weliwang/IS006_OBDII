@@ -4336,9 +4336,27 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
       PRINT_DATA("received MQTT OK message\r\n");
       gAutoMode_reconnecting_count=0;//reset auto mode max retry count
     }
+    else if(strncmp("+QMTPUB: 0,0,0",pch,strlen("+QMTPUB: 0,0,0"))==0)
+    {
+      //gLED_Auto_off=0;//clear turn off led blue flag ,so led blue will keep on
+      //gMQTT_received_flag--;
+      PRINT_DATA("received MQTT OK message\r\n");
+      gAutoMode_reconnecting_count=0;//reset auto mode max retry count
+    }
     else if(strncmp("ERROR",pch,strlen("ERROR"))==0)//for fix issue 388
     {
-      gMQTT_received_flag=10;
+      //gMQTT_received_flag=10;
+      if(gAutoMode_reconnecting_count>0)
+      {
+        gAutoMode_reconnecting_count++;
+        PRINT_DATA("MQTT send ERROR count:%d\r\n",gAutoMode_reconnecting_count);
+        if(gAutoMode_reconnecting_count>5)
+        {
+          PRINT_DATA("Reconnect 4G because MQTT send ERROR\r\n");
+          gAutoMode_reconnecting_count =0;
+          BJJA_reconnect_4G();
+        }
+      }
     }
     else if(strncmp("+QMTSTAT: 1,1",pch,13)==0)
     {
@@ -6033,7 +6051,7 @@ uint8_t BJJA_LM_read_gps()
 }
 void send_mqtt_cmd(uint8_t *mylocaldata)
 {
-  
+  gAutoMode_reconnecting_count++;
   PRINT_DATA("%s-send mqtt data\r\n",__FUNCTION__);
   SEND_LTE_M("AT+QMTPUB=0,0,0,0,\"/AVIS/%02x%02x%02x%02x%02x%02x/uplink\",%d\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5],strlen(mylocaldata));
   DELAY_US(30*1000);
