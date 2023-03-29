@@ -645,6 +645,10 @@ static uint8_t first_4g_flag=0x00;
 uint8_t g4G_cmd_flag=0x00;
 static uint8_t g4G_connection_retry_count=0x00;
 static uint8_t gAutoMode_reconnecting_count=0x00;
+static uint8_t gEarly_online_mqtt_reconnect_count=0x00;
+static uint8_t gEarly_online_mqtt_reconnect_flag=0x00;
+static uint8_t gMQTT_total_retry_count=0;
+static uint8_t g4G_detect_retry_count=0x00;
 uint16_t g4G_heartbeat=0x00;
 uint8_t gCurrent_Notify_id=0x00;
 uint8_t gACC_ON_OFF_flag=0x00;
@@ -4208,7 +4212,8 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
     else if(strncmp("+QMTOPEN: 0,0",pch,strlen("+QMTOPEN: 0,0"))==0)//AT+QMTOPEN OK
     {
       PRINT_DATA("MQTT early init OK\r\n");
-      SEND_LTE_M("AT+QMTCONN=0,\"%02x%02x%02x%02x%02x%02x\"\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
+      //SEND_LTE_M("AT+QMTCONN=0,\"%02x%02x%02x%02x%02x%02x\"\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
+      SEND_LTE_M("AT+QMTCONN=0,\"%s\"\r\n",/*gFlash_data.mqtt_user*/"HiwOk5pXCdBy9drsR6bD");
     }
     else if(strncmp("+QMTCONN: 0,0,0",pch,strlen("+QMTCONN: 0,0,0"))==0)//AT+QMTOPEN OK
     {
@@ -4229,12 +4234,19 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
         {
           PRINT_DATA("4G get operator OK\r\n");
         }
+        g4G_detect_retry_count=0;
         
       }
       else
       {
-        g4GStatus = TELCOMM_STATUS_OFFLINE;
-        PRINT_DATA("4G get operator fail todo action\r\n");
+        g4G_detect_retry_count++;
+        PRINT_DATA("4G get operator fail:%d<5\r\n",g4G_detect_retry_count);
+        if(g4G_connection_retry_count>5)
+        {
+          g4GStatus = TELCOMM_STATUS_OFFLINE;
+          PRINT_DATA("4G get operator fail todo action\r\n");
+        }
+        
       }
       
     }
@@ -4737,7 +4749,9 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
   else if (strncmp(serialBuffer2,"AT+MQ",strlen("AT+MQ"))==0)
   {
     uint8_t test_data[128]={0x00};
-    sprintf(test_data,"AT+QMTOPEN=0,\"a22gkkuykn8yvq-ats.iot.ap-northeast-1.amazonaws.com\",8883\r\n");
+    
+    //sprintf(test_data,"AT+QMTOPEN=0,\"a22gkkuykn8yvq-ats.iot.ap-northeast-1.amazonaws.com\",8883\r\n");
+    sprintf(test_data,"AT+QMTOPEN=0,\"a3toi86b2jby7e-ats.iot.eu-west-1.amazonaws.com\",8883\r\n");//this is for AVIS 20230307
     //AT+QMTOPEN=0,"a22gkkuykn8yvq-ats.iot.ap-northeast-1.amazonaws.com",8883//
     UartMessage(test_data,strlen(test_data));
     PRINT_DATA("Send:%s",test_data);
@@ -5410,10 +5424,10 @@ void BJJA_LM_load_default_setting()
     sprintf(gFlash_data.mqtt_url,"%s","rf-idh.com");
     gFlash_data.mqtt_authority=1883;
 #else  //AWS IoT Core mode
-    sprintf(gFlash_data.mqtt_url,"%s","a22gkkuykn8yvq-ats.iot.ap-northeast-1.amazonaws.com");
+    sprintf(gFlash_data.mqtt_url,"%s","a3toi86b2jby7e-ats.iot.eu-west-1.amazonaws.com");
     gFlash_data.mqtt_authority=8883;
 #endif
-    sprintf(gFlash_data.mqtt_user,"%s","foo");
+    sprintf(gFlash_data.mqtt_user,"%s","HiwOk5pXCdBy9drsR6bD");
     sprintf(gFlash_data.mqtt_passwd,"%s","bar");
     //write save data end in here
     //osal_snv_write(SNV_ID_BJJA_FLASH, BUF_OF_BJJA_SAVE_LEN, (uint8 *)data);
@@ -5447,7 +5461,7 @@ void BJJA_LM_init()
   
   Board_initUser2();
   //UartMessage2("Hello world\r\n",strlen("Hello world\r\n"));
-  PRINT_DATA("Ver:v1.0.5,Build Time:%s\r\n",__TIME__);
+  PRINT_DATA("Ver:v1.1.0,Build Time:%s\r\n",__TIME__);
   BJJA_LM_load_default_setting();
   
   BJJA_LM_read_flash();
@@ -5833,14 +5847,43 @@ static void BJJA_4G_JOIN()
     /*UartMessage("AT+GSN\r\n",strlen("AT+GSN\r\n"));
     PRINT_DATA("AT+GSN\r\n");
     DELAY_US(50*1000);BJJA_LM_tick_wdt();*/
-    UartMessage("AT+CREG?\r\n",strlen("AT+CREG?\r\n"));
-    PRINT_DATA("AT+CREG?\r\n");
-    DELAY_US(50*1000);BJJA_LM_tick_wdt();
-    /*UartMessage("AT+QIACT?\r\n",strlen("AT+QIACT?\r\n"));
-    PRINT_DATA("AT+QIACT?\r\n");
-    DELAY_US(50*1000);BJJA_LM_tick_wdt();*/
-    UartMessage("AT+CSQ\r\n",strlen("AT+CSQ\r\n"));
-    PRINT_DATA("AT+CSQ\r\n");
+    if(gEarly_online_mqtt_reconnect_flag)
+    {
+      gEarly_online_mqtt_reconnect_flag=0;
+      PRINT_DATA("reconnect MQTT\r\n");
+      BJJA_mqtt_connect();
+    }
+    else
+    {
+      if(g4GStatus == TELCOMM_STATUS_EARLY_ONLINE)
+      {
+        //如果在early online,一直沒連上MQTT,在經過3次(30s)heart beat時間,就重連
+        if(gEarly_online_mqtt_reconnect_count>2)
+        {
+          gEarly_online_mqtt_reconnect_flag=1;
+        }
+        else
+        {
+          gEarly_online_mqtt_reconnect_count++;
+        }
+        PRINT_DATA("mqtt_reconnect_count:%d,mqtt_reconnect_flag:%d,gMQTT_total_retry_count:%d\r\n",gEarly_online_mqtt_reconnect_count,gEarly_online_mqtt_reconnect_flag,gMQTT_total_retry_count);
+      }
+      else
+      {
+        gEarly_online_mqtt_reconnect_flag=0;
+        gEarly_online_mqtt_reconnect_count=0;
+        gMQTT_total_retry_count=0;
+      }
+        UartMessage("AT+CREG?\r\n",strlen("AT+CREG?\r\n"));
+        PRINT_DATA("AT+CREG?\r\n");
+        DELAY_US(50*1000);BJJA_LM_tick_wdt();
+        /*UartMessage("AT+QIACT?\r\n",strlen("AT+QIACT?\r\n"));
+        PRINT_DATA("AT+QIACT?\r\n");
+        DELAY_US(50*1000);BJJA_LM_tick_wdt();*/
+        UartMessage("AT+CSQ\r\n",strlen("AT+CSQ\r\n"));
+        PRINT_DATA("AT+CSQ\r\n");  
+    }
+    
     
     PRINT_DATA("4G heartbeat done\r\n");
   }
@@ -5861,7 +5904,21 @@ static void BJJA_4G_JOIN()
       gPING_count++;
     }
   }
-  PRINT_DATA("4G current state machine:%d\r\n",g4GStatus);
+  PRINT_DATA("4G current state machine:");
+  if(g4GStatus==TELCOMM_STATUS_OFFLINE)
+    PRINT_DATA("TELCOMM_STATUS_OFFLINE\r\n");
+  else if(g4GStatus==TELCOMM_STATUS_ONLINE)
+    PRINT_DATA("TELCOMM_STATUS_ONLINE\r\n");
+  else if(g4GStatus==TELCOMM_STATUS_CONNECTING)
+    PRINT_DATA("TELCOMM_STATUS_CONNECTING\r\n");
+  else if(g4GStatus==TELCOMM_STATUS_4G_NON_DETECTED)
+    PRINT_DATA("TELCOMM_STATUS_4G_NON_DETECTED\r\n");
+  else if(g4GStatus==TELCOMM_STATUS_4G_DETECTED_OK)
+    PRINT_DATA("TELCOMM_STATUS_4G_DETECTED_OK\r\n");
+  else if(g4GStatus==TELCOMM_STATUS_4G_DETECTED_FAIL)
+    PRINT_DATA("TELCOMM_STATUS_4G_DETECTED_FAIL\r\n");
+  else if(g4GStatus==TELCOMM_STATUS_EARLY_ONLINE)
+    PRINT_DATA("TELCOMM_STATUS_EARLY_ONLINE\r\n");
 }
 void BJJA_reconnect_4G()
 {
@@ -5889,7 +5946,24 @@ void BJJA_reconnect_4G()
 static void BJJA_mqtt_connect()
 {
   PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
-  SEND_LTE_M("AT+QMTOPEN=0,\"%s\",%d\r\n",gFlash_data.mqtt_url,gFlash_data.mqtt_port);
+  if(gMQTT_total_retry_count>4)
+  {
+    //如果連線5次都拿不到MQTT的連線,就重新初始化4G
+    PRINT_DATA("MQTT reconnect>4,do re-init 4G module\r\n");
+    g4GStatus = TELCOMM_STATUS_OFFLINE;
+    gEarly_online_mqtt_reconnect_flag=0;
+    gEarly_online_mqtt_reconnect_count=0;
+    gMQTT_total_retry_count=0;
+
+  }
+  else
+  {
+    DELAY_US(300*1000);
+    SEND_LTE_M("AT+QMTOPEN=0,\"%s\",%d\r\n",/*gFlash_data.mqtt_url*/"a3toi86b2jby7e-ats.iot.eu-west-1.amazonaws.com",gFlash_data.mqtt_port);
+    DELAY_US(300*1000);
+    gMQTT_total_retry_count++;
+  }
+
   
 }
 void parsing_mqtt_return_cmd(uint8_t *data)
@@ -6097,9 +6171,15 @@ void BJJA_LM_AWS_IoT_init()
 {
   DELAY_US(50*1000);
   SEND_LTE_M("AT+QMTCFG=\"ssl\",0,1,2\r\n");DELAY_US(50*1000);
+#if 1
+  SEND_LTE_M("AT+QSSLCFG=\"cacert\",2,\"cacert_avis.pem\"\r\n");DELAY_US(50*1000);
+  SEND_LTE_M("AT+QSSLCFG=\"clientcert\",2,\"client_avis.pem\"\r\n");DELAY_US(50*1000);
+  SEND_LTE_M("AT+QSSLCFG=\"clientkey\",2,\"user_key_avis.pem\"\r\n");DELAY_US(50*1000);
+#else
   SEND_LTE_M("AT+QSSLCFG=\"cacert\",2,\"cacert.pem\"\r\n");DELAY_US(50*1000);
   SEND_LTE_M("AT+QSSLCFG=\"clientcert\",2,\"client.pem\"\r\n");DELAY_US(50*1000);
   SEND_LTE_M("AT+QSSLCFG=\"clientkey\",2,\"user_key.pem\"\r\n");DELAY_US(50*1000);
+#endif
   SEND_LTE_M("AT+QSSLCFG=\"seclevel\",2,2\r\n");DELAY_US(50*1000);
   SEND_LTE_M("AT+QSSLCFG=\"sslversion\",2,4\r\n");DELAY_US(50*1000);
   SEND_LTE_M("AT+QSSLCFG=\"ciphersuite\",2,0XFFFF\r\n");DELAY_US(50*1000);
