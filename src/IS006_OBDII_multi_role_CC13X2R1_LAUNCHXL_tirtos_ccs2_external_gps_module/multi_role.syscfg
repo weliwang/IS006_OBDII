@@ -1,0 +1,193 @@
+/**
+ * These arguments were used when this file was generated. They will be automatically applied on subsequent loads
+ * via the GUI or CLI. Run CLI with '--help' for additional information on how to override these arguments.
+ * @cliArgs --device "CC1352R1F3RGZ" --package "RGZ" --part "Default" --product "simplelink_cc13x2_26x2_sdk@5.20.00.52"
+ * @versions {"data":"2021060817","timestamp":"2021060817","tool":"1.8.2+1992","templates":null}
+ */
+
+/**
+ * Import the modules used in this configuration.
+ */
+const ble         = scripting.addModule("/ti/ble5stack/ble");
+const CCFG        = scripting.addModule("/ti/devices/CCFG");
+const rfdesign    = scripting.addModule("/ti/devices/radioconfig/rfdesign");
+const Display     = scripting.addModule("/ti/display/Display");
+const Display1    = Display.addInstance();
+const AESCCM      = scripting.addModule("/ti/drivers/AESCCM");
+const AESCCM1     = AESCCM.addInstance();
+const AESCTRDRBG  = scripting.addModule("/ti/drivers/AESCTRDRBG");
+const AESCTRDRBG1 = AESCTRDRBG.addInstance();
+const AESECB      = scripting.addModule("/ti/drivers/AESECB");
+const AESECB1     = AESECB.addInstance();
+const AESECB2     = AESECB.addInstance();
+const ECDH        = scripting.addModule("/ti/drivers/ECDH");
+const ECDH1       = ECDH.addInstance();
+const GPIO        = scripting.addModule("/ti/drivers/GPIO");
+const GPIO1       = GPIO.addInstance();
+const GPIO2       = GPIO.addInstance();
+const GPIO3       = GPIO.addInstance();
+const GPIO4       = GPIO.addInstance();
+const GPIO5       = GPIO.addInstance();
+const GPIO6       = GPIO.addInstance();
+const GPIO7       = GPIO.addInstance();
+const GPIO8       = GPIO.addInstance();
+const GPIO9       = GPIO.addInstance();
+const NVS         = scripting.addModule("/ti/drivers/NVS");
+const NVS1        = NVS.addInstance();
+const Power       = scripting.addModule("/ti/drivers/Power");
+const RF          = scripting.addModule("/ti/drivers/RF");
+const RTOS        = scripting.addModule("/ti/drivers/RTOS");
+const TRNG        = scripting.addModule("/ti/drivers/TRNG");
+const TRNG1       = TRNG.addInstance();
+const UART        = scripting.addModule("/ti/drivers/UART", {}, false);
+const UART2       = UART.addInstance();
+const Watchdog    = scripting.addModule("/ti/drivers/Watchdog", {}, false);
+const Watchdog1   = Watchdog.addInstance();
+const JSON        = scripting.addModule("/ti/utils/JSON");
+
+/**
+ * Write custom configuration values to the imported modules.
+ */
+ble.deviceRole                                      = "PERIPHERAL_CFG+CENTRAL_CFG";
+ble.disDevBySerUuid                                 = true;
+ble.numOfAdvSets                                    = 1;
+ble.numOfDefAdvSets                                 = 1;
+ble.bondPairing                                     = "GAPBOND_PAIRING_MODE_NO_PAIRING";
+ble.bondMITMProtection                              = false;
+ble.bonding                                         = false;
+ble.addressMode                                     = "ADDRMODE_PUBLIC";
+ble.maxConnNum                                      = 4;
+ble.maxPDUSize                                      = 192;
+ble.connIntMax                                      = 500;
+ble.deviceName                                      = "AVIS";
+ble.radioConfig.codeExportConfig.$name              = "ti_devices_radioconfig_code_export_param0";
+ble.connUpdateParamsPeripheral.$name                = "ti_ble5stack_general_ble_conn_update_params0";
+ble.connUpdateParamsPeripheral.reqMinConnInt        = 100;
+ble.connUpdateParamsPeripheral.reqMaxConnInt        = 200;
+ble.connUpdateParamsPeripheral.reqConnTo            = 20000;
+ble.connUpdateParamsPeripheral.reqSlaveLat          = 1;
+ble.connUpdateParamsCentral.$name                   = "ti_ble5stack_general_ble_conn_update_params1";
+ble.connUpdateParamsCentral.reqMinConnInt           = 100;
+ble.connUpdateParamsCentral.reqMaxConnInt           = 200;
+ble.connUpdateParamsCentral.reqConnTo               = 20000;
+ble.connUpdateParamsCentral.reqSlaveLat             = 1;
+ble.advSet1.$name                                   = "ti_ble5stack_broadcaster_advertisement_set0";
+ble.advSet1.advParam1.$name                         = "ti_ble5stack_broadcaster_advertisement_params0";
+ble.advSet1.advData1.$name                          = "ti_ble5stack_broadcaster_advertisement_data0";
+ble.advSet1.advData1.GAP_ADTYPE_FLAGS               = true;
+ble.advSet1.advData1.advertisingFlags               = ["GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED"];
+ble.advSet1.advData1.GAP_ADTYPE_16BIT_MORE          = true;
+ble.advSet1.advData1.numOfUUIDs16More               = 1;
+ble.advSet1.advData1.UUID016More                    = 0xFFF0;
+ble.advSet1.advData1.GAP_ADTYPE_LOCAL_NAME_COMPLETE = true;
+ble.advSet1.advData1.completeLocalName              = "AVIS";
+ble.advSet1.scanRes1.$name                          = "ti_ble5stack_broadcaster_advertisement_data1";
+ble.advSet1.scanRes1.completeLocalName              = "AVIS";
+
+CCFG.enableBootloader         = true;
+CCFG.enableBootloaderBackdoor = true;
+CCFG.dioBootloaderBackdoor    = 15;
+CCFG.levelBootloaderBackdoor  = "Active low";
+CCFG.ccfgTemplate.$name       = "ti_devices_CCFGTemplate0";
+
+rfdesign.fbSub1g = "none";
+
+Display1.$name                          = "CONFIG_Display_0";
+Display1.enableANSI                     = true;
+Display1.uartBufferSize                 = 128;
+Display1.uart.$name                     = "CONFIG_DISPLAY_UART";
+Display1.uart.uart.$assign              = "UART1";
+Display1.uart.uart.txPin.$assign        = "19";
+Display1.uart.uart.rxPin.$assign        = "18";
+Display1.uart.txPinInstance.outputState = "High";
+Display1.uart.txPinInstance.$name       = "CONFIG_PIN_UART_TX";
+Display1.uart.rxPinInstance.$name       = "CONFIG_PIN_UART_RX";
+
+AESCCM1.$name = "CONFIG_AESCCM0";
+
+AESCTRDRBG1.$name              = "CONFIG_AESCTRDRBG_0";
+AESCTRDRBG1.aesctrObject.$name = "CONFIG_AESCTR_0";
+
+AESECB1.$name = "CONFIG_AESECB0";
+
+AESECB2.$name = "CONFIG_AESECB_0";
+
+ECDH1.$name = "CONFIG_ECDH0";
+
+GPIO1.pull              = "Pull Up";
+GPIO1.interruptTrigger  = "Falling Edge";
+GPIO1.mode              = "Dynamic";
+GPIO1.$name             = "CONFIG_GPIO_BTN1";
+GPIO1.gpioPin.$assign   = "21";
+GPIO1.pinInstance.$name = "CONFIG_PIN_BTN1";
+
+GPIO2.pull              = "Pull Up";
+GPIO2.interruptTrigger  = "Falling Edge";
+GPIO2.mode              = "Dynamic";
+GPIO2.$name             = "CONFIG_GPIO_BTN2";
+GPIO2.gpioPin.$assign   = "20";
+GPIO2.pinInstance.$name = "CONFIG_PIN_BTN2";
+
+GPIO3.$name             = "CONFIG_INGI";
+GPIO3.gpioPin.$assign   = "8";
+GPIO3.pinInstance.$name = "CONFIG_PIN_0";
+
+GPIO4.$name             = "CONFIG_DOOR";
+GPIO4.gpioPin.$assign   = "11";
+GPIO4.pinInstance.$name = "CONFIG_PIN_1";
+
+GPIO5.mode              = "Output";
+GPIO5.pull              = "Pull Up";
+GPIO5.$name             = "GPIO_3V8_EN";
+GPIO5.gpioPin.$assign   = "16";
+GPIO5.pinInstance.$name = "CONFIG_PIN_4";
+
+GPIO6.$name             = "GPIO_4G_PWR";
+GPIO6.mode              = "Output";
+GPIO6.pull              = "Pull Down";
+GPIO6.gpioPin.$assign   = "14";
+GPIO6.pinInstance.$name = "CONFIG_PIN_5";
+
+GPIO7.$name             = "GPIO_4G_RST";
+GPIO7.mode              = "Output";
+GPIO7.pull              = "Pull Down";
+GPIO7.gpioPin.$assign   = "12";
+GPIO7.pinInstance.$name = "CONFIG_PIN_6";
+
+GPIO8.$name              = "GPIO_LOCK";
+GPIO8.mode               = "Output";
+GPIO8.pull               = "Pull Up";
+GPIO8.initialOutputState = "High";
+GPIO8.gpioPin.$assign    = "28";
+GPIO8.pinInstance.$name  = "CONFIG_PIN_7";
+
+GPIO9.$name              = "GPIO_UNLOCK";
+GPIO9.mode               = "Output";
+GPIO9.initialOutputState = "High";
+GPIO9.pull               = "Pull Up";
+GPIO9.gpioPin.$assign    = "29";
+GPIO9.pinInstance.$name  = "CONFIG_PIN_8";
+
+NVS1.$name                    = "CONFIG_NVSINTERNAL";
+NVS1.internalFlash.$name      = "ti_drivers_nvs_NVSCC26XX0";
+NVS1.internalFlash.regionBase = 0x48000;
+NVS1.internalFlash.regionSize = 0x4000;
+
+TRNG1.$name = "CONFIG_TRNG_0";
+
+UART2.$name               = "CONFIG_UART_0";
+UART2.uart.$assign        = "UART0";
+UART2.uart.txPin.$assign  = "17";
+UART2.uart.rxPin.$assign  = "26";
+UART2.txPinInstance.$name = "CONFIG_PIN_2";
+UART2.rxPinInstance.$name = "CONFIG_PIN_3";
+
+Watchdog1.$name  = "CONFIG_WATCHDOG_0";
+Watchdog1.period = 10000;
+
+/**
+ * Pinmux solution for unlocked pins/peripherals. This ensures that minor changes to the automatic solver in a future
+ * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
+ * re-solve from scratch.
+ */
+Watchdog1.watchdog.$suggestSolution = "WDT0";
