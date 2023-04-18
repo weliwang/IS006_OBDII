@@ -79,7 +79,7 @@ void bjja_lm_uart_config2()
     uartParams2.readDataMode = UART_DATA_TEXT;
     uartParams2.readReturnMode = UART_RETURN_NEWLINE;
 
-    uartParams2.baudRate = 115200;
+    uartParams2.baudRate = 9600;
     // Open an instance of the UART drivers
     Uarthandle2 = UART_open(CONFIG_UART_0, &uartParams2);
     if (Uarthandle2 == NULL)
