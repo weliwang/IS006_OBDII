@@ -245,17 +245,17 @@ const uint_least8_t ECDH_count = CONFIG_ECDH_COUNT;
 #include <ti/drivers/GPIO.h>
 #include <ti/drivers/gpio/GPIOCC26XX.h>
 
-#define CONFIG_GPIO_COUNT 9
+#define CONFIG_GPIO_COUNT 11
 
 /*
  *  ======== gpioPinConfigs ========
  *  Array of Pin configurations
  */
 GPIO_PinConfig gpioPinConfigs[] = {
-    /* CONFIG_GPIO_BTN1 */
-    GPIOCC26XX_DIO_15 | GPIO_DO_NOT_CONFIG,
-    /* CONFIG_GPIO_BTN2 */
-    GPIOCC26XX_DIO_14 | GPIO_DO_NOT_CONFIG,
+    /* GPS_STANDBY */
+    GPIOCC26XX_DIO_15 | GPIO_CFG_OUT_STD | GPIO_CFG_OUT_STR_MED | GPIO_CFG_OUT_LOW,
+    /* GPS_PWR_EN */
+    GPIOCC26XX_DIO_14 | GPIO_CFG_OUT_STD | GPIO_CFG_OUT_STR_MED | GPIO_CFG_OUT_LOW,
     /* CONFIG_INGI */
     GPIOCC26XX_DIO_03 | GPIO_CFG_IN_NOPULL | GPIO_CFG_IN_INT_NONE,
     /* CONFIG_DOOR */
@@ -269,7 +269,11 @@ GPIO_PinConfig gpioPinConfigs[] = {
     /* GPIO_LOCK */
     GPIOCC26XX_DIO_18 | GPIO_CFG_OUT_STD | GPIO_CFG_OUT_STR_MED | GPIO_CFG_OUT_HIGH,
     /* GPIO_UNLOCK */
-    GPIOCC26XX_DIO_19 | GPIO_CFG_OUT_STD | GPIO_CFG_OUT_STR_MED | GPIO_CFG_OUT_HIGH,
+    GPIOCC26XX_DIO_17 | GPIO_CFG_OUT_STD | GPIO_CFG_OUT_STR_MED | GPIO_CFG_OUT_HIGH,
+    /* CONFIG_ENG_BTN */
+    GPIOCC26XX_DIO_04 | GPIO_CFG_IN_PU | GPIO_CFG_IN_INT_NONE,
+    /* GPS_nRESET */
+    GPIOCC26XX_DIO_05 | GPIO_CFG_OUT_STD | GPIO_CFG_OUT_STR_MED | GPIO_CFG_OUT_LOW,
 };
 
 /*
@@ -281,9 +285,9 @@ GPIO_PinConfig gpioPinConfigs[] = {
  *  (GPIO.optimizeCallbackTableSize = true)
  */
 GPIO_CallbackFxn gpioCallbackFunctions[] = {
-    /* CONFIG_GPIO_BTN1 */
+    /* GPS_STANDBY */
     NULL,
-    /* CONFIG_GPIO_BTN2 */
+    /* GPS_PWR_EN */
     NULL,
     /* CONFIG_INGI */
     NULL,
@@ -299,10 +303,14 @@ GPIO_CallbackFxn gpioCallbackFunctions[] = {
     NULL,
     /* GPIO_UNLOCK */
     NULL,
+    /* CONFIG_ENG_BTN */
+    NULL,
+    /* GPS_nRESET */
+    NULL,
 };
 
-const uint_least8_t CONFIG_GPIO_BTN1_CONST = CONFIG_GPIO_BTN1;
-const uint_least8_t CONFIG_GPIO_BTN2_CONST = CONFIG_GPIO_BTN2;
+const uint_least8_t GPS_STANDBY_CONST = GPS_STANDBY;
+const uint_least8_t GPS_PWR_EN_CONST = GPS_PWR_EN;
 const uint_least8_t CONFIG_INGI_CONST = CONFIG_INGI;
 const uint_least8_t CONFIG_DOOR_CONST = CONFIG_DOOR;
 const uint_least8_t GPIO_3V8_EN_CONST = GPIO_3V8_EN;
@@ -310,6 +318,8 @@ const uint_least8_t GPIO_4G_PWR_CONST = GPIO_4G_PWR;
 const uint_least8_t GPIO_4G_RST_CONST = GPIO_4G_RST;
 const uint_least8_t GPIO_LOCK_CONST = GPIO_LOCK;
 const uint_least8_t GPIO_UNLOCK_CONST = GPIO_UNLOCK;
+const uint_least8_t CONFIG_ENG_BTN_CONST = CONFIG_ENG_BTN;
+const uint_least8_t GPS_nRESET_CONST = GPS_nRESET;
 
 /*
  *  ======== GPIOCC26XX_config ========
@@ -317,8 +327,8 @@ const uint_least8_t GPIO_UNLOCK_CONST = GPIO_UNLOCK;
 const GPIOCC26XX_Config GPIOCC26XX_config = {
     .pinConfigs = (GPIO_PinConfig *)gpioPinConfigs,
     .callbacks = (GPIO_CallbackFxn *)gpioCallbackFunctions,
-    .numberOfPinConfigs = 9,
-    .numberOfCallbacks = 9,
+    .numberOfPinConfigs = 11,
+    .numberOfCallbacks = 11,
     .intPriority = (~0)
 };
 
@@ -390,17 +400,17 @@ const uint_least8_t NVS_count = CONFIG_NVS_COUNT;
 #include <ti/drivers/PIN.h>
 #include <ti/drivers/pin/PINCC26XX.h>
 
-#define CONFIG_PIN_COUNT 13
+#define CONFIG_PIN_COUNT 15
 
 const PIN_Config BoardGpioInitTable[CONFIG_PIN_COUNT + 1] = {
     /* Parent Signal: CONFIG_DISPLAY_UART TX, (DIO13) */
     CONFIG_PIN_UART_TX | PIN_GPIO_OUTPUT_EN | PIN_GPIO_HIGH | PIN_PUSHPULL | PIN_DRVSTR_MED,
     /* Parent Signal: CONFIG_DISPLAY_UART RX, (DIO12) */
     CONFIG_PIN_UART_RX | PIN_INPUT_EN | PIN_PULLDOWN | PIN_IRQ_DIS,
-    /* Parent Signal: CONFIG_GPIO_BTN1 GPIO Pin, (DIO15) */
-    CONFIG_PIN_BTN1 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_DIS,
-    /* Parent Signal: CONFIG_GPIO_BTN2 GPIO Pin, (DIO14) */
-    CONFIG_PIN_BTN2 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_DIS,
+    /* Parent Signal: GPS_STANDBY GPIO Pin, (DIO15) */
+    CONFIG_PIN_BTN1 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
+    /* Parent Signal: GPS_PWR_EN GPIO Pin, (DIO14) */
+    CONFIG_PIN_BTN2 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
     /* Parent Signal: CONFIG_INGI GPIO Pin, (DIO3) */
     CONFIG_PIN_0 | PIN_INPUT_EN | PIN_NOPULL | PIN_IRQ_DIS,
     /* Parent Signal: CONFIG_DOOR GPIO Pin, (DIO6) */
@@ -413,8 +423,12 @@ const PIN_Config BoardGpioInitTable[CONFIG_PIN_COUNT + 1] = {
     CONFIG_PIN_6 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
     /* Parent Signal: GPIO_LOCK GPIO Pin, (DIO18) */
     CONFIG_PIN_7 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_HIGH | PIN_PUSHPULL | PIN_DRVSTR_MED,
-    /* Parent Signal: GPIO_UNLOCK GPIO Pin, (DIO19) */
+    /* Parent Signal: GPIO_UNLOCK GPIO Pin, (DIO17) */
     CONFIG_PIN_8 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_HIGH | PIN_PUSHPULL | PIN_DRVSTR_MED,
+    /* Parent Signal: CONFIG_ENG_BTN GPIO Pin, (DIO4) */
+    CONFIG_PIN_9 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_DIS,
+    /* Parent Signal: GPS_nRESET GPIO Pin, (DIO5) */
+    CONFIG_PIN_10 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
     /* Parent Signal: CONFIG_UART_0 TX, (DIO11) */
     CONFIG_PIN_2 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
     /* Parent Signal: CONFIG_UART_0 RX, (DIO16) */

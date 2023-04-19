@@ -4565,9 +4565,20 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
       }
     }*/
   }
-  else if(strncmp(serialBuffer2,"AT+GPS",strlen("AT+GPS"))==0)
+  else if(strncmp(serialBuffer2,"AT+FACTORY",strlen("AT+FACTORY"))==0)
+  {
+    gStopHB=1;
+    PRINT_DATA("OK+FACTORY\r\n");
+  }
+  else if(strncmp(serialBuffer2,"AT+GPS=1",strlen("AT+GPS=1"))==0)
   {
     gLastGpsLat_flag=1;
+    PRINT_DATA("OK+GPS\r\n");
+  }
+  else if(strncmp(serialBuffer2,"AT+GPS=0",strlen("AT+GPS=0"))==0)
+  {
+    gLastGpsLat_flag=0;
+    BJJA_LM_GPS_OFF();
     PRINT_DATA("OK+GPS\r\n");
   }
   else if(strncmp(serialBuffer2,"AT+NOTI",strlen("AT+NOTI"))==0)
@@ -5554,6 +5565,39 @@ void BJJA_LM_write_SR_flash()
 {
   osal_snv_write(SNV_ID_BJJA_SAVE, sizeof(gSubGpairing_data[8]),&gSubGpairing_data);
 }
+uint8_t BJJA_LM_check_Factory_mode()
+{
+  uint8_t i=0;
+  for(i=0;i<10;i++)
+  {
+    PRINT_DATA("factory check:%d\r\n",i);
+    if(GPIO_read(CONFIG_ENG_BTN)==1)//weli:INGI DIO3 low active
+      return 0;   
+    DELAY_US(1000*300);
+    
+  }
+  return 1; 
+}
+BJJA_LM_GPS_OFF()
+{
+  GPIO_write(GPS_PWR_EN,0);
+}
+BJJA_LM_GPS_init()
+{
+  //GPS_nRESET default low
+  //keep low
+
+  //GPS_STANDBY default low
+  //keep low
+
+  //GPS_PWR_EN default low
+  //keep HIGH
+
+  GPIO_write(GPS_nRESET,0);
+  GPIO_write(GPS_STANDBY,0);
+  GPIO_write(GPS_PWR_EN,1);
+
+}
 void BJJA_LM_init()
 {
   BJJA_WDT_init();
@@ -5561,7 +5605,7 @@ void BJJA_LM_init()
   
   Board_initUser2();
   //UartMessage2("Hello world\r\n",strlen("Hello world\r\n"));
-  PRINT_DATA("Ver:v1.1.1,Build Time:%s\r\n",__TIME__);
+  PRINT_DATA("Ver:v1.1.2,Build Time:%s\r\n",__TIME__);
   BJJA_LM_load_default_setting();
   
   BJJA_LM_read_flash();
@@ -5585,6 +5629,12 @@ void BJJA_LM_init()
 
   GPIO_write(GPIO_3V8_EN,1);
   PRINT_DATA("Enable 3V8\r\n");
+  if(BJJA_LM_check_Factory_mode()==1)
+  {
+    PRINT_DATA("Entry factory mode:\r\n");
+    gStopHB=1;
+  }
+  BJJA_LM_GPS_init();
   DELAY_US(1000*100);
 
   GPIO_write(GPIO_4G_PWR,1);

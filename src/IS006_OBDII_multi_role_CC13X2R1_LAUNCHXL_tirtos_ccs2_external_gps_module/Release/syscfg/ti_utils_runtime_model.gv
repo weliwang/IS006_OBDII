@@ -81,8 +81,8 @@ digraph Model
     // mod.$name=/ti/drivers/GPIO
     ti_drivers_GPIO -> ti_drivers_Power
     ti_drivers_GPIO -> ti_drivers_Board
-    CONFIG_GPIO_BTN1 -> CONFIG_PIN_BTN1
-    CONFIG_GPIO_BTN2 -> CONFIG_PIN_BTN2
+    GPS_STANDBY -> CONFIG_PIN_BTN1
+    GPS_PWR_EN -> CONFIG_PIN_BTN2
     CONFIG_INGI -> CONFIG_PIN_0
     CONFIG_DOOR -> CONFIG_PIN_1
     GPIO_3V8_EN -> CONFIG_PIN_4
@@ -90,6 +90,8 @@ digraph Model
     GPIO_4G_RST -> CONFIG_PIN_6
     GPIO_LOCK -> CONFIG_PIN_7
     GPIO_UNLOCK -> CONFIG_PIN_8
+    CONFIG_ENG_BTN -> CONFIG_PIN_9
+    GPS_nRESET -> CONFIG_PIN_10
 
     // mod.$name=/ti/drivers/NVS
     CONFIG_NVSINTERNAL -> ti_drivers_Board
