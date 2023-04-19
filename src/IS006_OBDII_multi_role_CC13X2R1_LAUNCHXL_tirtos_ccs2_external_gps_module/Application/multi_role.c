@@ -4212,8 +4212,8 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
     else if(strncmp("+QMTOPEN: 0,0",pch,strlen("+QMTOPEN: 0,0"))==0)//AT+QMTOPEN OK
     {
       PRINT_DATA("MQTT early init OK\r\n");
-      //SEND_LTE_M("AT+QMTCONN=0,\"%02x%02x%02x%02x%02x%02x\"\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
-      SEND_LTE_M("AT+QMTCONN=0,\"%s\"\r\n",/*gFlash_data.mqtt_user*/"HiwOk5pXCdBy9drsR6bD");
+      SEND_LTE_M("AT+QMTCONN=0,\"%02x%02x%02x%02x%02x%02x\"\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
+      //SEND_LTE_M("AT+QMTCONN=0,\"%s\"\r\n",/*gFlash_data.mqtt_user*/"HiwOk5pXCdBy9drsR6bD");
     }
     else if(strncmp("+QMTCONN: 0,0,0",pch,strlen("+QMTCONN: 0,0,0"))==0)//AT+QMTOPEN OK
     {
@@ -4341,6 +4341,7 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
       //+QPING: 561
       g4GStatus = TELCOMM_STATUS_OFFLINE;
     }
+    
     else if(strncmp("+QMTPUBEX: 1,0,0",pch,strlen("+QMTPUBEX: 1,0,0"))==0)
     {
       //gLED_Auto_off=0;//clear turn off led blue flag ,so led blue will keep on
@@ -4369,6 +4370,16 @@ void BJJA_parsing_AT_cmd_send_data(uint8 *pBuf,uint8 pBuf_len)
           BJJA_reconnect_4G();
         }
       }
+    }
+    else if(strncmp("+QMTSTAT: 0,1",pch,13)==0)
+    {//Bug #1992[IS006_OBDII]QMTSTAT issue.
+      PRINT_DATA("detected mqtt offline reconnect");
+#if 1
+      BJJA_mqtt_connect();
+#else
+      gAutoMode_reconnecting_count =0;
+      BJJA_reconnect_4G();
+#endif
     }
     else if(strncmp("+QMTSTAT: 1,1",pch,13)==0)
     {
@@ -4553,6 +4564,11 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
         PRINT_DATA("get GPS data:%s\r\n",pch);
       }
     }*/
+  }
+  else if(strncmp(serialBuffer2,"AT+GPS",strlen("AT+GPS"))==0)
+  {
+    gLastGpsLat_flag=1;
+    PRINT_DATA("OK+GPS\r\n");
   }
   else if(strncmp(serialBuffer2,"AT+NOTI",strlen("AT+NOTI"))==0)
   {
@@ -5545,7 +5561,7 @@ void BJJA_LM_init()
   
   Board_initUser2();
   //UartMessage2("Hello world\r\n",strlen("Hello world\r\n"));
-  PRINT_DATA("Ver:v1.1.0,Build Time:%s\r\n",__TIME__);
+  PRINT_DATA("Ver:v1.1.1,Build Time:%s\r\n",__TIME__);
   BJJA_LM_load_default_setting();
   
   BJJA_LM_read_flash();
@@ -6016,10 +6032,11 @@ void BJJA_reconnect_4G()
   SEND_LTE_M("AT+CFUN=1,1\r\n");
   //HAL_Delay(1000*10);//wait for 4G init
   uint8_t i=0;
-  for(i=0;i<10;i++)
+  for(i=0;i<20;i++)
   {
     BJJA_LM_tick_wdt();
-    DELAY_US(1000*1000);
+    DELAY_US(500*1000);
+    BJJA_LM_tick_wdt();
   }
   
   PRINT_DATA("reconnect 4G module\r\n");
@@ -6261,9 +6278,12 @@ void BJJA_LM_AWS_IoT_init()
   DELAY_US(50*1000);
   SEND_LTE_M("AT+QMTCFG=\"ssl\",0,1,2\r\n");DELAY_US(50*1000);
 #if 1
-  SEND_LTE_M("AT+QSSLCFG=\"cacert\",2,\"cacert_avis.pem\"\r\n");DELAY_US(50*1000);
+  /*SEND_LTE_M("AT+QSSLCFG=\"cacert\",2,\"cacert_avis.pem\"\r\n");DELAY_US(50*1000);
   SEND_LTE_M("AT+QSSLCFG=\"clientcert\",2,\"client_avis.pem\"\r\n");DELAY_US(50*1000);
-  SEND_LTE_M("AT+QSSLCFG=\"clientkey\",2,\"user_key_avis.pem\"\r\n");DELAY_US(50*1000);
+  SEND_LTE_M("AT+QSSLCFG=\"clientkey\",2,\"user_key_avis.pem\"\r\n");DELAY_US(50*1000);*/
+  SEND_LTE_M("AT+QSSLCFG=\"cacert\",2,\"cacert_avis_all.pem\"\r\n");DELAY_US(50*1000);
+  SEND_LTE_M("AT+QSSLCFG=\"clientcert\",2,\"client_avis_all.pem\"\r\n");DELAY_US(50*1000);
+  SEND_LTE_M("AT+QSSLCFG=\"clientkey\",2,\"user_key_avis_all.pem\"\r\n");DELAY_US(50*1000);
 #else
   SEND_LTE_M("AT+QSSLCFG=\"cacert\",2,\"cacert.pem\"\r\n");DELAY_US(50*1000);
   SEND_LTE_M("AT+QSSLCFG=\"clientcert\",2,\"client.pem\"\r\n");DELAY_US(50*1000);
@@ -6283,13 +6303,15 @@ void BJJA_LM_4G_early_init()
   SEND_LTE_M("AT+QMTCLOSE=0\r\n");
   BJJA_LM_tick_wdt();
   DELAY_US(1000*1000);
+  BJJA_LM_tick_wdt();
   SEND_LTE_M("AT+CFUN=1,1\r\n");
 
   uint8_t i=0;
-  for(i=0;i<10;i++)
+  for(i=0;i<20;i++)
   {
     BJJA_LM_tick_wdt();
-    DELAY_US(1000*1000);
+    DELAY_US(500*1000);
+    BJJA_LM_tick_wdt();
   }
   
   BJJA_LM_4G_mode();
@@ -6300,9 +6322,9 @@ void BJJA_LM_4G_early_init()
   
 
   BJJA_LM_AWS_IoT_init();
-  SEND_LTE_M("AT+QMTCFG=\"keepalive\",0,100\r\n");
+  SEND_LTE_M("AT+QMTCFG=\"keepalive\",0,3600\r\n");
   DELAY_US(50*1000);
-  SEND_LTE_M("AT+QMTCFG=\"timeout\",0,60,2,1\r\n");
+  SEND_LTE_M("AT+QMTCFG=\"timeout\",0,60,10,1\r\n");
   DELAY_US(50*1000);
 
 
