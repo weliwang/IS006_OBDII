@@ -5605,7 +5605,7 @@ void BJJA_LM_init()
   
   Board_initUser2();
   //UartMessage2("Hello world\r\n",strlen("Hello world\r\n"));
-  PRINT_DATA("Ver:v1.1.2,Build Time:%s\r\n",__TIME__);
+  PRINT_DATA("Ver:v1.1.3,Build Time:%s\r\n",__TIME__);
   BJJA_LM_load_default_setting();
   
   BJJA_LM_read_flash();
@@ -6405,11 +6405,11 @@ void BJJA_LM_1S_worker()
   {
     gFirst_boot=0;
     uint8_t mydata[64]={0x00};
-    sprintf(mydata,"+EVT_MB_POWER_ON:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
+    //sprintf(mydata,"+EVT_MB_POWER_ON:%s,%d,%d,%d\r\n",gFlash_data.user_name,gFlash_data.SOC,gFlash_data.ODO_meter,gDoor_State);
 #if 0    
     send_mqtt_cmd(mydata);
 #else
-    BJJA_LM_Json_periodic_upload_mqtt(mydata);
+    //BJJA_LM_Json_periodic_upload_mqtt(mydata);
 #endif
   }
 #if 1
