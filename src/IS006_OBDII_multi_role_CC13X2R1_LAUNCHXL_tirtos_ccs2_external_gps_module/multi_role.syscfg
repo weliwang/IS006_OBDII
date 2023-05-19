@@ -165,7 +165,7 @@ GPIO9.$name              = "GPIO_UNLOCK";
 GPIO9.mode               = "Output";
 GPIO9.initialOutputState = "High";
 GPIO9.pull               = "Pull Up";
-GPIO9.gpioPin.$assign    = "27";
+GPIO9.gpioPin.$assign    = "29";
 GPIO9.pinInstance.$name  = "CONFIG_PIN_8";
 
 GPIO10.$name             = "CONFIG_ENG_BTN";

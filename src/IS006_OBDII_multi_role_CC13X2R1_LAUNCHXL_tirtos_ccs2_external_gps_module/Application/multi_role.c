@@ -4520,6 +4520,11 @@ void BJJA_LM_parsing_gps(char *data)
     PRINT_DATA("Find gps location:%s\r\n",gLastGpsLat);
     //gLastGpsLat_flag=0;
   }
+  else
+  {
+    sprintf(gLastGpsLat,"");//gps not ready
+    PRINT_DATA("GPS not ready\r\n");
+  }
 }
 void BJJA_parsing_AT_cmd_send_data_UART2()
 {
@@ -5605,7 +5610,7 @@ void BJJA_LM_init()
   
   Board_initUser2();
   //UartMessage2("Hello world\r\n",strlen("Hello world\r\n"));
-  PRINT_DATA("Ver:v1.1.3,Build Time:%s\r\n",__TIME__);
+  PRINT_DATA("Ver:v1.2.0,Build Time:%s\r\n",__TIME__);
   BJJA_LM_load_default_setting();
   
   BJJA_LM_read_flash();

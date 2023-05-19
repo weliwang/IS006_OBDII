@@ -113,7 +113,7 @@ extern const uint_least8_t              GPIO_4G_RST_CONST;
 /* DIO18 */
 extern const uint_least8_t              GPIO_LOCK_CONST;
 #define GPIO_LOCK                       7
-/* DIO17 */
+/* DIO19 */
 extern const uint_least8_t              GPIO_UNLOCK_CONST;
 #define GPIO_UNLOCK                     8
 /* DIO4 */
@@ -168,8 +168,8 @@ extern const PIN_Config BoardGpioInitTable[];
 #define CONFIG_PIN_6                   0x00000007
 /* Parent Signal: GPIO_LOCK GPIO Pin, (DIO18) */
 #define CONFIG_PIN_7                   0x00000012
-/* Parent Signal: GPIO_UNLOCK GPIO Pin, (DIO17) */
-#define CONFIG_PIN_8                   0x00000011
+/* Parent Signal: GPIO_UNLOCK GPIO Pin, (DIO19) */
+#define CONFIG_PIN_8                   0x00000013
 /* Parent Signal: CONFIG_ENG_BTN GPIO Pin, (DIO4) */
 #define CONFIG_PIN_9                   0x00000004
 /* Parent Signal: GPS_nRESET GPIO Pin, (DIO5) */
