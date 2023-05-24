@@ -119,13 +119,13 @@ ECDH1.$name = "CONFIG_ECDH0";
 GPIO1.$name             = "GPS_STANDBY";
 GPIO1.mode              = "Output";
 GPIO1.pull              = "Pull Down";
-GPIO1.gpioPin.$assign   = "21";
+GPIO1.gpioPin.$assign   = "20";
 GPIO1.pinInstance.$name = "CONFIG_PIN_BTN1";
 
 GPIO2.pull              = "Pull Up";
 GPIO2.$name             = "GPS_PWR_EN";
 GPIO2.mode              = "Output";
-GPIO2.gpioPin.$assign   = "20";
+GPIO2.gpioPin.$assign   = "21";
 GPIO2.pinInstance.$name = "CONFIG_PIN_BTN2";
 
 GPIO3.$name             = "CONFIG_INGI";
@@ -154,27 +154,27 @@ GPIO7.pull              = "Pull Down";
 GPIO7.gpioPin.$assign   = "12";
 GPIO7.pinInstance.$name = "CONFIG_PIN_6";
 
-GPIO8.$name              = "GPIO_LOCK";
-GPIO8.mode               = "Output";
-GPIO8.pull               = "Pull Up";
-GPIO8.initialOutputState = "High";
-GPIO8.gpioPin.$assign    = "28";
-GPIO8.pinInstance.$name  = "CONFIG_PIN_7";
+GPIO8.$name             = "GPIO_LOCK";
+GPIO8.mode              = "Output";
+GPIO8.pull              = "Pull Up";
+GPIO8.gpioPin.$assign   = "28";
+GPIO8.pinInstance.$name = "CONFIG_PIN_7";
 
-GPIO9.$name              = "GPIO_UNLOCK";
-GPIO9.mode               = "Output";
-GPIO9.initialOutputState = "High";
-GPIO9.pull               = "Pull Up";
-GPIO9.gpioPin.$assign    = "29";
-GPIO9.pinInstance.$name  = "CONFIG_PIN_8";
+GPIO9.$name             = "GPIO_UNLOCK";
+GPIO9.mode              = "Output";
+GPIO9.pull              = "Pull Up";
+GPIO9.gpioPin.$assign   = "29";
+GPIO9.pinInstance.$name = "CONFIG_PIN_8";
 
 GPIO10.$name             = "CONFIG_ENG_BTN";
 GPIO10.pull              = "Pull Up";
+GPIO10.gpioPin.$assign   = "9";
 GPIO10.pinInstance.$name = "CONFIG_PIN_9";
 
 GPIO11.$name             = "GPS_nRESET";
 GPIO11.mode              = "Output";
 GPIO11.pull              = "Pull Down";
+GPIO11.gpioPin.$assign   = "27";
 GPIO11.pinInstance.$name = "CONFIG_PIN_10";
 
 NVS1.$name                    = "CONFIG_NVSINTERNAL";
@@ -199,6 +199,4 @@ Watchdog1.period = 10000;
  * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
  * re-solve from scratch.
  */
-GPIO10.gpioPin.$suggestSolution     = "9";
-GPIO11.gpioPin.$suggestSolution     = "10";
 Watchdog1.watchdog.$suggestSolution = "WDT0";

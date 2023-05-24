@@ -86,6 +86,7 @@
  * Add by weli end
  */
 
+#define FW_VERSION "V1.3.0"
 
 /*********************************************************************
  * MACROS
@@ -582,6 +583,10 @@ uint8_t BJJA_LM_Early_Entry_Arm_state();
 void BJJA_LM_send_odo_cmd(uint8_t type);//0toyota,1 standard obdii
 void BJJA_LM_send_fuel_level_cmd(uint8_t type);//0toyota,1 standard obdii
 void BJJA_LM_parsing_OBDII_data(uint8 *data,uint8 len);
+void BJJA_LM_Disarm();
+void BJJA_LM_Arm();
+void BJJA_LM_CloseDoor();
+void BJJA_LM_OpenDoor();
 #define OBD_MAX_CMD 16
 typedef struct
 {
@@ -858,7 +863,7 @@ void BJJA_LM_tick_wdt()
   //UartMessage("tick wdt2\r\n",strlen("tick wdt2\r\n"));
   //return;
   
-  if(gvalid)
+  //if(gvalid)
     Watchdog_clear(watchdogHandle);
 }
 /*
@@ -4570,6 +4575,10 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
       }
     }*/
   }
+  else if(strncmp(serialBuffer2,"AT+VER=?",strlen("AT+VER=?"))==0)
+  {
+    PRINT_DATA("OK+Ver:%s,Build Time:%s\r\n",FW_VERSION,__TIME__);
+  }
   else if(strncmp(serialBuffer2,"AT+FACTORY",strlen("AT+FACTORY"))==0)
   {
     gStopHB=1;
@@ -4613,14 +4622,31 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
   }
   else if (strncmp(serialBuffer2,"AT+ARM",strlen("AT+ARM"))==0)
   {
-    gArm_Disarm_command=1;
+    BJJA_LM_Arm();
     PRINT_DATA("OK+ARM\r\n");
   }
   else if (strncmp(serialBuffer2,"AT+DISARM",strlen("AT+DISARM"))==0)
   {
-    gArm_Disarm_command=2;
+    BJJA_LM_Disarm();
     PRINT_DATA("OK+DISARM\r\n");
   }
+  else if (strncmp(serialBuffer2,"AT+Door=",strlen("AT+Door="))==0)
+  {
+    if(serialBuffer2[8]=='0')
+    {
+      BJJA_LM_control_door_function(0);
+      PRINT_DATA("OK+Door:0\r\n");
+    }
+    else
+    {
+      BJJA_LM_control_door_function(1);
+      PRINT_DATA("OK+Door:1\r\n");
+    }
+  }
+  /*else if (strncmp(serialBuffer2,"AT+GetStatus",strlen("AT+GetStatus"))==0)
+  {
+    PRINT_DATA("OK+GetStatus:door=%d,INGI:%d\r\n",gDoor_State,)
+  }*/
   else if (strncmp(serialBuffer2,"AT+OBDMAC=?",strlen("AT+OBDMAC=?"))==0)
   {
     PRINT_DATA("OK+OBDMAC:%02x%02x%02x%02x%02x%02x\r\n",gFlash_data.obdii_mac[0],
@@ -5599,7 +5625,7 @@ BJJA_LM_GPS_init()
   //keep HIGH
 
   GPIO_write(GPS_nRESET,0);
-  GPIO_write(GPS_STANDBY,0);
+  //GPIO_write(GPS_STANDBY,1);
   GPIO_write(GPS_PWR_EN,1);
 
 }
@@ -5610,7 +5636,7 @@ void BJJA_LM_init()
   
   Board_initUser2();
   //UartMessage2("Hello world\r\n",strlen("Hello world\r\n"));
-  PRINT_DATA("Ver:v1.2.0,Build Time:%s\r\n",__TIME__);
+  PRINT_DATA("Ver:%s,Build Time:%s\r\n",FW_VERSION,__TIME__);
   BJJA_LM_load_default_setting();
   
   BJJA_LM_read_flash();
@@ -5634,30 +5660,34 @@ void BJJA_LM_init()
 
   GPIO_write(GPIO_3V8_EN,1);
   PRINT_DATA("Enable 3V8\r\n");
-  if(BJJA_LM_check_Factory_mode()==1)
+  if(gvalid==0 || BJJA_LM_check_Factory_mode()==1)//test
   {
     PRINT_DATA("Entry factory mode:\r\n");
     gStopHB=1;
   }
-  BJJA_LM_GPS_init();
+  PRINT_DATA("function:%s,%d\r\n",__FUNCTION__,__LINE__);
+  //BJJA_LM_GPS_init();//weli test
+  PRINT_DATA("function:%s,%d\r\n",__FUNCTION__,__LINE__);
+  
   DELAY_US(1000*100);
-
+  //BJJA_LM_tick_wdt();
+  
   GPIO_write(GPIO_4G_PWR,1);
   DELAY_US(1000*100);
-  GPIO_write(GPIO_4G_PWR,0);
+  GPIO_write(GPIO_4G_PWR,0);//KO
   DELAY_US(1000*300);
-  GPIO_write(GPIO_4G_RST,1);
+  GPIO_write(GPIO_4G_RST,1);//KO
   DELAY_US(1000*100);
   GPIO_write(GPIO_4G_RST,0);
   PRINT_DATA("Enable LTE-M module\r\n");
 
-  sprintf(gFlash_data.user_name,"weli");
+  sprintf(gFlash_data.user_name,"avis");
   
 
   
   
-  GPIO_write(GPIO_LOCK,0);//pull down car door lock pin
-  GPIO_write(GPIO_UNLOCK,0);//pull down car door unlock pin
+  //GPIO_write(GPIO_LOCK,0);//pull down car door lock pin
+  //GPIO_write(GPIO_UNLOCK,0);//pull down car door unlock pin
   
 
   /*UartMessage("AT\r\n",4);

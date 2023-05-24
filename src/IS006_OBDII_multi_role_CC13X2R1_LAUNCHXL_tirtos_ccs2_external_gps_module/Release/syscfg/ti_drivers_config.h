@@ -89,10 +89,10 @@ extern const uint_least8_t              CONFIG_ECDH0_CONST;
  *  ======== GPIO ========
  */
 
-/* DIO15 */
+/* DIO14 */
 extern const uint_least8_t              GPS_STANDBY_CONST;
 #define GPS_STANDBY                     0
-/* DIO14 */
+/* DIO15 */
 extern const uint_least8_t              GPS_PWR_EN_CONST;
 #define GPS_PWR_EN                      1
 /* DIO3 */
@@ -119,7 +119,7 @@ extern const uint_least8_t              GPIO_UNLOCK_CONST;
 /* DIO4 */
 extern const uint_least8_t              CONFIG_ENG_BTN_CONST;
 #define CONFIG_ENG_BTN                  9
-/* DIO5 */
+/* DIO17 */
 extern const uint_least8_t              GPS_nRESET_CONST;
 #define GPS_nRESET                      10
 #define CONFIG_TI_DRIVERS_GPIO_COUNT    11
@@ -152,10 +152,10 @@ extern const PIN_Config BoardGpioInitTable[];
 #define CONFIG_PIN_UART_TX                   0x0000000d
 /* Parent Signal: CONFIG_DISPLAY_UART RX, (DIO12) */
 #define CONFIG_PIN_UART_RX                   0x0000000c
-/* Parent Signal: GPS_STANDBY GPIO Pin, (DIO15) */
-#define CONFIG_PIN_BTN1                   0x0000000f
-/* Parent Signal: GPS_PWR_EN GPIO Pin, (DIO14) */
-#define CONFIG_PIN_BTN2                   0x0000000e
+/* Parent Signal: GPS_STANDBY GPIO Pin, (DIO14) */
+#define CONFIG_PIN_BTN1                   0x0000000e
+/* Parent Signal: GPS_PWR_EN GPIO Pin, (DIO15) */
+#define CONFIG_PIN_BTN2                   0x0000000f
 /* Parent Signal: CONFIG_INGI GPIO Pin, (DIO3) */
 #define CONFIG_PIN_0                   0x00000003
 /* Parent Signal: CONFIG_DOOR GPIO Pin, (DIO6) */
@@ -172,8 +172,8 @@ extern const PIN_Config BoardGpioInitTable[];
 #define CONFIG_PIN_8                   0x00000013
 /* Parent Signal: CONFIG_ENG_BTN GPIO Pin, (DIO4) */
 #define CONFIG_PIN_9                   0x00000004
-/* Parent Signal: GPS_nRESET GPIO Pin, (DIO5) */
-#define CONFIG_PIN_10                   0x00000005
+/* Parent Signal: GPS_nRESET GPIO Pin, (DIO17) */
+#define CONFIG_PIN_10                   0x00000011
 /* Parent Signal: CONFIG_UART_0 TX, (DIO11) */
 #define CONFIG_PIN_2                   0x0000000b
 /* Parent Signal: CONFIG_UART_0 RX, (DIO16) */
