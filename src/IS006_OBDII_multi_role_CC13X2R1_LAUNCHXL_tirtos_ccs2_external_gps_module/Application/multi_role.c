@@ -5579,6 +5579,7 @@ void BJJA_LM_load_default_setting()
 void BJJA_LM_read_SR_flash()
 {
   osal_snv_read(SNV_ID_BJJA_SAVE, sizeof(gSubGpairing_data[8]),&gSubGpairing_data);
+  PRINT_DATA("Statellite list\r\n");
   uint8_t i=0;
   for(i=0;i<8;i++)
   {
@@ -5658,6 +5659,8 @@ void BJJA_LM_init()
   
   PRINT_DATA("MAC=%02x:%02x:%02x:%02x:%02x:%02x\r\n",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
 
+  
+
   GPIO_write(GPIO_3V8_EN,1);
   PRINT_DATA("Enable 3V8\r\n");
   if(gvalid==0 || BJJA_LM_check_Factory_mode()==1)//test
@@ -5676,7 +5679,7 @@ void BJJA_LM_init()
   GPIO_write(LED_indicator,1);
   DELAY_US(1000*200);
   GPIO_write(LED_indicator,0);
-  
+
   BJJA_LM_GPS_init();
   
   DELAY_US(1000*100);
@@ -6936,6 +6939,7 @@ void BJJA_LM_Arm()
 }
 uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
 {
+  uint8_t myOK_flag=0x00;
   uint16_t jsonBufSize=1024;
   static char jsonBuf[1024];  /* max string to hold serialized JSON buffer */
   Json_Handle hTemplate;
@@ -6954,7 +6958,7 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
 
       BJJA_LM_json_set_token_data(&hObject_response,"GetStatusResponse","\"command\"");  
       memset(token_data,0x00,sizeof(token_data));
-      
+      myOK_flag=1;
       my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"commandId\"");
       if(my_ret)
       {
@@ -6996,31 +7000,51 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
       if(strncmp(token_data,"OpenDoorAndDisarm",strlen("OpenDoorAndDisarm"))==0)
       {
         BJJA_LM_json_set_token_data(&hObject_response,"OpenDoorAndDisarmResponse","\"command\"");  
-        BJJA_LM_OpenDoorAndDisarm();
+        if(BJJA_LM_Early_Entry_DisArm_state())
+        {
+          myOK_flag=1;
+          BJJA_LM_OpenDoorAndDisarm();
+        }
+
       }
       else if(strncmp(token_data,"OpenDoor",strlen("OpenDoor"))==0)
       {
         BJJA_LM_json_set_token_data(&hObject_response,"OpenDoorResponse","\"command\"");  
         BJJA_LM_OpenDoor();
-        
+        myOK_flag=1;
       }
       else if(strncmp(token_data,"CloseDoor",strlen("CloseDoor"))==0)
       {
         BJJA_LM_json_set_token_data(&hObject_response,"CloseDoorResponse","\"command\"");  
         BJJA_LM_CloseDoor();
+        myOK_flag=1;
       }
       else if(strncmp(token_data,"Disarm",strlen("Disarm"))==0)
       {
         BJJA_LM_json_set_token_data(&hObject_response,"DisarmResponse","\"command\"");  
-        BJJA_LM_Disarm();
+         if(BJJA_LM_Early_Entry_DisArm_state())
+        {
+          myOK_flag=1;
+          BJJA_LM_Disarm();
+        }
+        //BJJA_LM_Disarm();
       }
       else if(strncmp(token_data,"Arm",strlen("Arm"))==0)
       {
         BJJA_LM_json_set_token_data(&hObject_response,"ArmResponse","\"command\"");  
         if(BJJA_LM_check_INGI()==1)
-          ret=1;
+        {
+          ;
+        }
         else
-          BJJA_LM_Arm();
+        {
+          if(BJJA_LM_Early_Entry_Arm_state()==1)
+          {
+            BJJA_LM_Arm();
+            myOK_flag=1;  
+          }
+          
+        }
       }
       
       memset(token_data,0x00,sizeof(token_data));
@@ -7031,7 +7055,7 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
         BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"commandId\"");
       }
       memset(token_data,0x00,sizeof(token_data));
-      if(ret)
+      if(myOK_flag==0)
         BJJA_LM_json_set_token_data(&hObject_response,"Rejected","\"payload\"");
       else
         BJJA_LM_json_set_token_data(&hObject_response,"Accepted","\"payload\"");
