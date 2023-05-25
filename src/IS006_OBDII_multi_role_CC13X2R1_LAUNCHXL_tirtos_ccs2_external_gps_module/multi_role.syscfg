@@ -34,6 +34,7 @@ const GPIO8       = GPIO.addInstance();
 const GPIO9       = GPIO.addInstance();
 const GPIO10      = GPIO.addInstance();
 const GPIO11      = GPIO.addInstance();
+const GPIO12      = GPIO.addInstance();
 const NVS         = scripting.addModule("/ti/drivers/NVS");
 const NVS1        = NVS.addInstance();
 const Power       = scripting.addModule("/ti/drivers/Power");
@@ -176,6 +177,12 @@ GPIO11.mode              = "Output";
 GPIO11.pull              = "Pull Down";
 GPIO11.gpioPin.$assign   = "27";
 GPIO11.pinInstance.$name = "CONFIG_PIN_10";
+
+GPIO12.mode              = "Output";
+GPIO12.pull              = "Pull Up";
+GPIO12.$name             = "LED_indicator";
+GPIO12.gpioPin.$assign   = "10";
+GPIO12.pinInstance.$name = "CONFIG_PIN_11";
 
 NVS1.$name                    = "CONFIG_NVSINTERNAL";
 NVS1.internalFlash.$name      = "ti_drivers_nvs_NVSCC26XX0";

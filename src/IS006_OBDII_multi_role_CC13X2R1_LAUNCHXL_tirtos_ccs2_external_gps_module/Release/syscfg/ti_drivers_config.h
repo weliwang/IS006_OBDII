@@ -122,7 +122,10 @@ extern const uint_least8_t              CONFIG_ENG_BTN_CONST;
 /* DIO17 */
 extern const uint_least8_t              GPS_nRESET_CONST;
 #define GPS_nRESET                      10
-#define CONFIG_TI_DRIVERS_GPIO_COUNT    11
+/* DIO5 */
+extern const uint_least8_t              LED_indicator_CONST;
+#define LED_indicator                   11
+#define CONFIG_TI_DRIVERS_GPIO_COUNT    12
 
 /* LEDs are active high */
 #define CONFIG_GPIO_LED_ON  (1)
@@ -174,11 +177,13 @@ extern const PIN_Config BoardGpioInitTable[];
 #define CONFIG_PIN_9                   0x00000004
 /* Parent Signal: GPS_nRESET GPIO Pin, (DIO17) */
 #define CONFIG_PIN_10                   0x00000011
+/* Parent Signal: LED_indicator GPIO Pin, (DIO5) */
+#define CONFIG_PIN_11                   0x00000005
 /* Parent Signal: CONFIG_UART_0 TX, (DIO11) */
 #define CONFIG_PIN_2                   0x0000000b
 /* Parent Signal: CONFIG_UART_0 RX, (DIO16) */
 #define CONFIG_PIN_3                   0x00000010
-#define CONFIG_TI_DRIVERS_PIN_COUNT    15
+#define CONFIG_TI_DRIVERS_PIN_COUNT    16
 
 
 

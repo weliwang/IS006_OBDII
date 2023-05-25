@@ -92,6 +92,7 @@ digraph Model
     GPIO_UNLOCK -> CONFIG_PIN_8
     CONFIG_ENG_BTN -> CONFIG_PIN_9
     GPS_nRESET -> CONFIG_PIN_10
+    LED_indicator -> CONFIG_PIN_11
 
     // mod.$name=/ti/drivers/NVS
     CONFIG_NVSINTERNAL -> ti_drivers_Board

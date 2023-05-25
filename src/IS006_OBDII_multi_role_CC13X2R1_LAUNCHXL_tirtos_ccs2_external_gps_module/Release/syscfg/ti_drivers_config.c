@@ -245,7 +245,7 @@ const uint_least8_t ECDH_count = CONFIG_ECDH_COUNT;
 #include <ti/drivers/GPIO.h>
 #include <ti/drivers/gpio/GPIOCC26XX.h>
 
-#define CONFIG_GPIO_COUNT 11
+#define CONFIG_GPIO_COUNT 12
 
 /*
  *  ======== gpioPinConfigs ========
@@ -274,6 +274,8 @@ GPIO_PinConfig gpioPinConfigs[] = {
     GPIOCC26XX_DIO_04 | GPIO_CFG_IN_PU | GPIO_CFG_IN_INT_NONE,
     /* GPS_nRESET */
     GPIOCC26XX_DIO_17 | GPIO_CFG_OUT_STD | GPIO_CFG_OUT_STR_MED | GPIO_CFG_OUT_LOW,
+    /* LED_indicator */
+    GPIOCC26XX_DIO_05 | GPIO_CFG_OUT_STD | GPIO_CFG_OUT_STR_MED | GPIO_CFG_OUT_LOW,
 };
 
 /*
@@ -307,6 +309,8 @@ GPIO_CallbackFxn gpioCallbackFunctions[] = {
     NULL,
     /* GPS_nRESET */
     NULL,
+    /* LED_indicator */
+    NULL,
 };
 
 const uint_least8_t GPS_STANDBY_CONST = GPS_STANDBY;
@@ -320,6 +324,7 @@ const uint_least8_t GPIO_LOCK_CONST = GPIO_LOCK;
 const uint_least8_t GPIO_UNLOCK_CONST = GPIO_UNLOCK;
 const uint_least8_t CONFIG_ENG_BTN_CONST = CONFIG_ENG_BTN;
 const uint_least8_t GPS_nRESET_CONST = GPS_nRESET;
+const uint_least8_t LED_indicator_CONST = LED_indicator;
 
 /*
  *  ======== GPIOCC26XX_config ========
@@ -327,8 +332,8 @@ const uint_least8_t GPS_nRESET_CONST = GPS_nRESET;
 const GPIOCC26XX_Config GPIOCC26XX_config = {
     .pinConfigs = (GPIO_PinConfig *)gpioPinConfigs,
     .callbacks = (GPIO_CallbackFxn *)gpioCallbackFunctions,
-    .numberOfPinConfigs = 11,
-    .numberOfCallbacks = 11,
+    .numberOfPinConfigs = 12,
+    .numberOfCallbacks = 12,
     .intPriority = (~0)
 };
 
@@ -400,7 +405,7 @@ const uint_least8_t NVS_count = CONFIG_NVS_COUNT;
 #include <ti/drivers/PIN.h>
 #include <ti/drivers/pin/PINCC26XX.h>
 
-#define CONFIG_PIN_COUNT 15
+#define CONFIG_PIN_COUNT 16
 
 const PIN_Config BoardGpioInitTable[CONFIG_PIN_COUNT + 1] = {
     /* Parent Signal: CONFIG_DISPLAY_UART TX, (DIO13) */
@@ -429,6 +434,8 @@ const PIN_Config BoardGpioInitTable[CONFIG_PIN_COUNT + 1] = {
     CONFIG_PIN_9 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_DIS,
     /* Parent Signal: GPS_nRESET GPIO Pin, (DIO17) */
     CONFIG_PIN_10 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
+    /* Parent Signal: LED_indicator GPIO Pin, (DIO5) */
+    CONFIG_PIN_11 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
     /* Parent Signal: CONFIG_UART_0 TX, (DIO11) */
     CONFIG_PIN_2 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
     /* Parent Signal: CONFIG_UART_0 RX, (DIO16) */

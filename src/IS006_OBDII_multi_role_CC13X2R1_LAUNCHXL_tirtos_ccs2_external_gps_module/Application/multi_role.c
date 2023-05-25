@@ -5625,7 +5625,7 @@ BJJA_LM_GPS_init()
   //keep HIGH
 
   GPIO_write(GPS_nRESET,0);
-  //GPIO_write(GPS_STANDBY,1);
+  GPIO_write(GPS_STANDBY,0);
   GPIO_write(GPS_PWR_EN,1);
 
 }
@@ -5665,18 +5665,28 @@ void BJJA_LM_init()
     PRINT_DATA("Entry factory mode:\r\n");
     gStopHB=1;
   }
-  PRINT_DATA("function:%s,%d\r\n",__FUNCTION__,__LINE__);
-  //BJJA_LM_GPS_init();//weli test
-  PRINT_DATA("function:%s,%d\r\n",__FUNCTION__,__LINE__);
+  GPIO_write(LED_indicator,1);
+  DELAY_US(1000*200);
+  GPIO_write(LED_indicator,0);
+  DELAY_US(1000*200);
+  GPIO_write(LED_indicator,1);
+  DELAY_US(1000*200);
+  GPIO_write(LED_indicator,0);
+  DELAY_US(1000*200);
+  GPIO_write(LED_indicator,1);
+  DELAY_US(1000*200);
+  GPIO_write(LED_indicator,0);
+  
+  BJJA_LM_GPS_init();
   
   DELAY_US(1000*100);
   //BJJA_LM_tick_wdt();
   
   GPIO_write(GPIO_4G_PWR,1);
   DELAY_US(1000*100);
-  GPIO_write(GPIO_4G_PWR,0);//KO
+  GPIO_write(GPIO_4G_PWR,0);
   DELAY_US(1000*300);
-  GPIO_write(GPIO_4G_RST,1);//KO
+  GPIO_write(GPIO_4G_RST,1);
   DELAY_US(1000*100);
   GPIO_write(GPIO_4G_RST,0);
   PRINT_DATA("Enable LTE-M module\r\n");
@@ -6079,6 +6089,7 @@ static void BJJA_4G_JOIN()
   }
   if(g4GStatus==TELCOMM_STATUS_ONLINE)
   {
+    GPIO_write(LED_indicator,1);
     if(gPING_count>=12)//10seconds*12=120seconds
     {
       SEND_LTE_M("AT+QPING=1,\"8.8.8.8\"\r\n");
@@ -6088,6 +6099,10 @@ static void BJJA_4G_JOIN()
     {
       gPING_count++;
     }
+  }
+  else
+  {
+    GPIO_write(LED_indicator,0);
   }
   PRINT_DATA("4G current state machine:");
   if(g4GStatus==TELCOMM_STATUS_OFFLINE)
