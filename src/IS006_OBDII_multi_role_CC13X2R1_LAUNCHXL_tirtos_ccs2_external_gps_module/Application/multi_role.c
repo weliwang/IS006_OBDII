@@ -86,7 +86,7 @@
  * Add by weli end
  */
 
-#define FW_VERSION "V1.3.0"
+#define FW_VERSION "V1.3.1"
 
 /*********************************************************************
  * MACROS
@@ -357,7 +357,8 @@ static uint8_t mrInitPhy = INIT_PHY_1M;
 "{"                                     \
   "\"commandId\": string,"              \
   "\"command\": string,"                \
-  "\"payload\": string"                 \
+  "\"payload\": string,"                 \
+  "\"externalId\": string"             \
 "}"
 #define MQTT_DOWNLINK_SCHEMA            \
 "{"                                     \
@@ -460,7 +461,8 @@ static uint8_t mrInitPhy = INIT_PHY_1M;
 "{"                                                     \
   "\"commandId\": \"1q2z3er56\","                       \
   "\"command\": \"OpenDoorReponse\","                   \
-  "\"payload\": \"Rejected\""                           \
+  "\"payload\": \"Rejected\","                           \
+  "\"externalId\": \"externalId\""             \
 "}"
 #define EXAMPLE_AUTHORIZE_OF_RESPONSE                   \
 "{"                                                     \
@@ -587,6 +589,7 @@ void BJJA_LM_Disarm();
 void BJJA_LM_Arm();
 void BJJA_LM_CloseDoor();
 void BJJA_LM_OpenDoor();
+void BJJA_LM_CloseDoorAndArm();
 #define OBD_MAX_CMD 16
 typedef struct
 {
@@ -6869,6 +6872,7 @@ uint8_t BJJA_LM_json_get_token_data(Json_Handle *hLocalObject,uint8_t *ret_data,
     }
     memcpy(ret_data,valueBuf,valueSize);
     free(valueBuf);
+    PRINT_DATA("get_token:%s,%s\r\n",pKey,ret_data);
     return 1;
 
 }
@@ -6879,9 +6883,10 @@ uint8_t BJJA_LM_json_set_token_data(Json_Handle *hLocalObject,uint8_t *set_value
     retVal = Json_setValue(*hLocalObject, pKey, set_value, strlen(set_value));
     if (retVal != 0) 
     {
-        PRINT_DATA("Error setting the age value\r\n");
+        PRINT_DATA("Error setting the %s,%s\r\n",pKey,set_value);
         return 0;
     }
+    PRINT_DATA("set_token:%s,%s\r\n",pKey,set_value);
     return 1;
 
 }
@@ -6914,6 +6919,11 @@ void BJJA_LM_OpenDoor()
 {
   //BJJA_LM_control_door_function(0);//lock test
   BJJA_LM_control_door_function(1);//unlock test
+}
+void BJJA_LM_CloseDoorAndArm()
+{
+  BJJA_LM_control_door_function(0);//lock test
+  gArm_Disarm_command=1;//arm
 }
 void BJJA_LM_OpenDoorAndDisarm()
 {
@@ -6989,8 +6999,46 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
       send_mqtt_cmd(jsonBuf);
       return 0;
     }
+    else if(strncmp(token_data,"GetInfo",strlen("GetInfo"))==0)
+    {
+      BJJA_LM_create_json(&hObject_response,&hTemplate_response,RESPONSE_SCHEMA_UPLINK,EXAMPLE_OF_RESPONSE_UPLINK);
+
+      BJJA_LM_json_set_token_data(&hObject_response,"GetInfoResponse","\"command\"");  
+      memset(token_data,0x00,sizeof(token_data));
+      myOK_flag=1;
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"commandId\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"commandId\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"uuid\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"uuid\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"externalId\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"externalId\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+      sprintf(token_data,"Ver:%s,Build Time:%s,RSSI:%d\r\n",FW_VERSION,__TIME__,gCsq_val);
+      BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"payload\"");
+
+      
+      BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      send_mqtt_cmd(jsonBuf);
+      return 0;
+    }
     else if(strncmp(token_data,"OpenDoor",strlen("OpenDoor"))==0 ||
             strncmp(token_data,"OpenDoorAndDisarm",strlen("OpenDoorAndDisarm"))==0 ||
+            strncmp(token_data,"CloseDoorAndArm",strlen("CloseDoorAndArm"))==0 ||
             strncmp(token_data,"CloseDoor",strlen("CloseDoor"))==0 ||
             strncmp(token_data,"Disarm",strlen("Disarm"))==0 ||
             strncmp(token_data,"Arm",strlen("Arm"))==0 )
@@ -7004,6 +7052,16 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
         {
           myOK_flag=1;
           BJJA_LM_OpenDoorAndDisarm();
+        }
+
+      }
+      else if(strncmp(token_data,"CloseDoorAndArm",strlen("CloseDoorAndArm"))==0)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,"CloseDoorAndArmResponse","\"command\"");  
+        if(BJJA_LM_Early_Entry_Arm_state())
+        {
+          myOK_flag=1;
+          BJJA_LM_CloseDoorAndArm();
         }
 
       }
@@ -7055,6 +7113,14 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
         BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"commandId\"");
       }
       memset(token_data,0x00,sizeof(token_data));
+
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"externalId\"");
+      if(my_ret)
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"externalId\"");
+      }
+      memset(token_data,0x00,sizeof(token_data));
+
       if(myOK_flag==0)
         BJJA_LM_json_set_token_data(&hObject_response,"Rejected","\"payload\"");
       else
@@ -7089,6 +7155,10 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
             else if(strncmp(token_data,"OpenDoorAndDisarmResponse",strlen("OpenDoorAndDisarmResponse"))==0)
             {
               BJJA_LM_OpenDoorAndDisarm();
+            }
+            else if(strncmp(token_data,"CloseDoorAndArmResponse",strlen("CloseDoorAndArmResponse"))==0)
+            {
+              BJJA_LM_CloseDoorAndArm();
             }
             else if(strncmp(token_data,"CloseDoorResponse",strlen("CloseDoorResponse"))==0)
             {
