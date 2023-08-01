@@ -86,7 +86,7 @@
  * Add by weli end
  */
 
-#define FW_VERSION "V1.3.1"
+#define FW_VERSION "V1.3.2"
 
 /*********************************************************************
  * MACROS
@@ -5386,7 +5386,8 @@ void BJJA_LM_Entry_DisArm_state()
 }
 uint8_t BJJA_LM_Early_Entry_Arm_state()
 {
-  if(gACC_ON_timer_flag==0 && BJJA_LM_check_DOOR()==0)//INGI OFF & DOOR off
+  //Hey @Weili Wang , another problem, When the door is physically open,  Arm command is rejected, we want to allow Arm when the door is physically open. is it possible?
+  if(gACC_ON_timer_flag==0 /*&& BJJA_LM_check_DOOR()==0*/)//INGI OFF & DOOR off
     return 1;
   else
     return 0;
@@ -5397,7 +5398,8 @@ void BJJA_LM_Entry_Arm_state()
   {
     if(gArm_Disarm_command==1)//ask entry arm state
     {
-      if(gACC_ON_timer_flag==0 && BJJA_LM_check_DOOR()==0)//INGI OFF & DOOR off
+      //Hey @Weili Wang , another problem, When the door is physically open,  Arm command is rejected, we want to allow Arm when the door is physically open. is it possible?
+      if(gACC_ON_timer_flag==0 /*&& BJJA_LM_check_DOOR()==0*/)//INGI OFF & DOOR off
       {
         //disconnect obdii device
         BJJA_LM_disconnect_OBDII();
