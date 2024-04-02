@@ -92,9 +92,9 @@
             this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
-            this.tabPage5 = new System.Windows.Forms.TabPage();
-            this.comboBox1 = new System.Windows.Forms.ComboBox();
             this.label4 = new System.Windows.Forms.Label();
+            this.comboBox1 = new System.Windows.Forms.ComboBox();
+            this.tabPage5 = new System.Windows.Forms.TabPage();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -466,7 +466,6 @@
             // 
             this.textBox6.Location = new System.Drawing.Point(6, 119);
             this.textBox6.Name = "textBox6";
-            this.textBox6.ReadOnly = true;
             this.textBox6.Size = new System.Drawing.Size(193, 22);
             this.textBox6.TabIndex = 14;
             this.textBox6.Text = "/AVIS/e4e112009d75/uplink";
@@ -475,10 +474,10 @@
             // 
             this.textBox7.Location = new System.Drawing.Point(6, 88);
             this.textBox7.Name = "textBox7";
-            this.textBox7.ReadOnly = true;
             this.textBox7.Size = new System.Drawing.Size(193, 22);
             this.textBox7.TabIndex = 16;
             this.textBox7.Text = "/AVIS/e4e112009d75/downlink";
+            this.textBox7.TextChanged += new System.EventHandler(this.textBox7_TextChanged);
             // 
             // serialPort1
             // 
@@ -809,18 +808,15 @@
             this.groupBox3.TabStop = false;
             this.groupBox3.Text = "Setting";
             // 
-            // tabPage5
+            // label4
             // 
-            this.tabPage5.Controls.Add(this.textBox1);
-            this.tabPage5.Controls.Add(this.tabControl1);
-            this.tabPage5.Controls.Add(this.button4);
-            this.tabPage5.Location = new System.Drawing.Point(4, 22);
-            this.tabPage5.Name = "tabPage5";
-            this.tabPage5.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPage5.Size = new System.Drawing.Size(844, 528);
-            this.tabPage5.TabIndex = 1;
-            this.tabPage5.Text = "Console Mode";
-            this.tabPage5.UseVisualStyleBackColor = true;
+            this.label4.AutoSize = true;
+            this.label4.Font = new System.Drawing.Font("Arial Narrow", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label4.Location = new System.Drawing.Point(3, 21);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(61, 20);
+            this.label4.TabIndex = 10;
+            this.label4.Text = "Devices:";
             // 
             // comboBox1
             // 
@@ -835,15 +831,18 @@
             this.comboBox1.TabIndex = 9;
             this.comboBox1.SelectedIndexChanged += new System.EventHandler(this.comboBox1_SelectedIndexChanged);
             // 
-            // label4
+            // tabPage5
             // 
-            this.label4.AutoSize = true;
-            this.label4.Font = new System.Drawing.Font("Arial Narrow", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label4.Location = new System.Drawing.Point(3, 21);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(61, 20);
-            this.label4.TabIndex = 10;
-            this.label4.Text = "Devices:";
+            this.tabPage5.Controls.Add(this.textBox1);
+            this.tabPage5.Controls.Add(this.tabControl1);
+            this.tabPage5.Controls.Add(this.button4);
+            this.tabPage5.Location = new System.Drawing.Point(4, 22);
+            this.tabPage5.Name = "tabPage5";
+            this.tabPage5.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPage5.Size = new System.Drawing.Size(844, 528);
+            this.tabPage5.TabIndex = 1;
+            this.tabPage5.Text = "Console Mode";
+            this.tabPage5.UseVisualStyleBackColor = true;
             // 
             // Form1
             // 

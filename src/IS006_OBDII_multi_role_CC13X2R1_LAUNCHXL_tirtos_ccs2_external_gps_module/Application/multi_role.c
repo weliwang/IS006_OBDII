@@ -86,7 +86,7 @@
  * Add by weli end
  */
 
-#define FW_VERSION "V1.3.2"
+#define FW_VERSION "V1.3.3"
 
 /*********************************************************************
  * MACROS
@@ -995,7 +995,7 @@ static void multi_role_init(void)
                       (UArg)&periodicOBDD);
 
   // Init key debouncer
-  Board_initKeys(multi_role_keyChangeHandler);
+  //Board_initKeys(multi_role_keyChangeHandler);
 
   // Initialize Connection List
   multi_role_clearConnListEntry(LINKDB_CONNHANDLE_ALL);
@@ -1987,11 +1987,11 @@ static void multi_role_processAppMsg(mrEvt_t *pMsg)
       break;
     }
 
-    case MR_EVT_KEY_CHANGE:
+    /*case MR_EVT_KEY_CHANGE:
     {
       multi_role_handleKeys(*(uint8_t *)(pMsg->pData));
       break;
-    }
+    }*/
 
     case MR_EVT_ADV_REPORT:
     {
@@ -2986,7 +2986,7 @@ static void multi_role_clockHandler(UArg arg)
 *
 * @return  none
 */
-static void multi_role_keyChangeHandler(uint8_t keys)
+/*static void multi_role_keyChangeHandler(uint8_t keys)
 {
   uint8_t *pValue = ICall_malloc(sizeof(uint8_t));
 
@@ -2996,7 +2996,7 @@ static void multi_role_keyChangeHandler(uint8_t keys)
 
     multi_role_enqueueMsg(MR_EVT_KEY_CHANGE, pValue);
   }
-}
+}*/
 
 /*********************************************************************
 * @fn      multi_role_handleKeys
@@ -3009,7 +3009,7 @@ static void multi_role_keyChangeHandler(uint8_t keys)
 *
 * @return  none
 */
-static void multi_role_handleKeys(uint8_t keys)
+/*static void multi_role_handleKeys(uint8_t keys)
 {
   uint32_t rtnVal = 0;
   if (keys & KEY_LEFT)
@@ -3029,7 +3029,7 @@ static void multi_role_handleKeys(uint8_t keys)
       //tbm_buttonRight();
     }
   }
-}
+}*/
 
 /*********************************************************************
 * @fn      multi_role_processGATTDiscEvent
@@ -4589,12 +4589,13 @@ void BJJA_parsing_AT_cmd_send_data_UART2()
   }
   else if(strncmp(serialBuffer2,"AT+GPS=1",strlen("AT+GPS=1"))==0)
   {
-    gLastGpsLat_flag=1;
+    //gLastGpsLat_flag=1;
+    BJJA_LM_GPS_ON();
     PRINT_DATA("OK+GPS\r\n");
   }
   else if(strncmp(serialBuffer2,"AT+GPS=0",strlen("AT+GPS=0"))==0)
   {
-    gLastGpsLat_flag=0;
+    //gLastGpsLat_flag=0;
     BJJA_LM_GPS_OFF();
     PRINT_DATA("OK+GPS\r\n");
   }
@@ -5443,7 +5444,7 @@ void BJJA_LM_state_machine_heart_beat()
     if(gACC_ON_timer_flag==1)
       gACC_ON_OFF_flag=1;
 
-
+    BJJA_LM_GPS_ON();
     // run do scan OBDII
     UartMessage2("acc on ",strlen("acc on ")); //weli mark
     
@@ -5458,6 +5459,7 @@ void BJJA_LM_state_machine_heart_beat()
     if(gACC_ON_timer_flag>0)
       gACC_ON_OFF_flag=2;
     gACC_ON_timer_flag=0;
+    BJJA_LM_GPS_OFF();
     UartMessage2("acc off ",strlen("acc off ")); //weli mark
   }
 #if 1
@@ -5617,7 +5619,15 @@ uint8_t BJJA_LM_check_Factory_mode()
 }
 BJJA_LM_GPS_OFF()
 {
+  gLastGpsLat_flag=0;
   GPIO_write(GPS_PWR_EN,0);
+  PRINT_DATA("GPS_OFF\r\n");
+}
+BJJA_LM_GPS_ON()
+{
+  gLastGpsLat_flag=1;
+  GPIO_write(GPS_PWR_EN,1);
+  PRINT_DATA("GPS_ON\r\n");
 }
 BJJA_LM_GPS_init()
 {
@@ -5686,6 +5696,21 @@ void BJJA_LM_init()
   GPIO_write(LED_indicator,0);
 
   BJJA_LM_GPS_init();
+  BJJA_LM_GPS_OFF();
+  /*while(1)
+  {
+    DELAY_US(1000*500);
+    GPIO_write(GPS_PWR_EN,0);
+    GPIO_write(GPS_STANDBY,0);
+    GPIO_write(LED_indicator,0);
+    DELAY_US(1000*500);
+    GPIO_write(GPS_PWR_EN,1);
+    GPIO_write(GPS_STANDBY,1);
+    GPIO_write(LED_indicator,1);
+    DELAY_US(1000*500);
+    PRINT_DATA("GPS test\r\n");
+    BJJA_LM_tick_wdt();
+  }*/
   
   DELAY_US(1000*100);
   //BJJA_LM_tick_wdt();
@@ -5881,8 +5906,8 @@ uint8_t check_ble()
   //  PRINT_DATA("%2x",gFlash_data.sn[i]);
   //PRINT_DATA("\r\n");
   GetMacAddress(gMac);
-  //gvalid=1;
-  //return 1;
+  gvalid=1;
+  return 1;
 
   //http://testprotect.com/appendix/AEScalc
   //cf21513c0d0a1203251220030144ff01//key
@@ -6348,7 +6373,7 @@ void send_mqtt_cmd(uint8_t *mylocaldata)
 }
 void send_mqtt_test_cmd(uint8_t *mylocaldata,uint8 gps_en)
 {
-  PRINT_DATA("TODO:%s:line:%d\r\n",__FUNCTION__,__LINE__);
+  PRINT_DATA("TODO:%s:line:%d,gps_en:%d\r\n",__FUNCTION__,__LINE__,gps_en);
 #if 1
   //if(gps_en)
   if(1)//add by weli 20221121 customer require,when acc off,still upload gps

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="x-windows-950"?>
+<?xml version="1.0" encoding="GBK"?>
 <!--  This file conforms to the DTD xdc/bld/build.dtd -->
 <package name="configPkg" version="" producerId="undefined">
     <units>

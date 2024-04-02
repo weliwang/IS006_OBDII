@@ -453,5 +453,10 @@ namespace MQTT_Utility
             textBox7.Text = download_mqtt_path;
             textBox6.Text = upload_mqtt_path;
         }
+
+        private void textBox7_TextChanged(object sender, EventArgs e)
+        {
+
+        }
     }
 }
