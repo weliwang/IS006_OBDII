@@ -31,6 +31,10 @@ typedef struct
   uint8_t SOC;
 } BJJM_LM_flash_data;
 
+typedef struct
+{
+  uint8_t nextToken[32];
+} BJJM_LM_flash_data_s2;
 
 extern void BJJA_LM_Sub1G_init();
 extern void BJJA_LM_early_send_cmd();

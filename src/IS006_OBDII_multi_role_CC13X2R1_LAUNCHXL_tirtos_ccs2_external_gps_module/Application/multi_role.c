@@ -82,11 +82,13 @@
 #define BUF_OF_BJJA_SAVE_LEN 200
 #define SNV_ID_BJJA_FLASH 0x86
 #define BUF_OF_BJJA_FLASH_LEN 200
+#define SNV_ID_BJJA_FLASH_S2 0x87
+#define BUF_OF_BJJA_FLASH_S2_LEN 200
 /*********************************************************************
  * Add by weli end
  */
 
-#define FW_VERSION "V1.3.3"
+#define FW_VERSION "V1.3.5"
 
 /*********************************************************************
  * MACROS
@@ -590,6 +592,8 @@ void BJJA_LM_Arm();
 void BJJA_LM_CloseDoor();
 void BJJA_LM_OpenDoor();
 void BJJA_LM_CloseDoorAndArm();
+void BJJA_LM_write_stage2_flash();
+void BJJA_LM_read_stage2_flash();
 #define OBD_MAX_CMD 16
 typedef struct
 {
@@ -639,6 +643,7 @@ enum STATE_MACHINE gBJJA_LM_State_machine=Pwr_on;
 enum OBD_STATE gBJJA_LM_Obd_state=O_Discover;
 SubGpairing_data gSubGpairing_data[8];
 BJJM_LM_flash_data gFlash_data;
+BJJM_LM_flash_data_s2 gFlash_data_s2;
 
 uint8_t g4GStatus=TELCOMM_STATUS_4G_NON_DETECTED;
 #ifdef FACTORY
@@ -5536,6 +5541,26 @@ void BJJA_LM_state_machine_heart_beat()
   BJJA_LM_4G_HeartBeat();
 
 }
+void BJJA_LM_write_stage2_flash()
+{
+  osal_snv_write(SNV_ID_BJJA_FLASH_S2, sizeof(gFlash_data_s2),&gFlash_data_s2);
+}
+void BJJA_LM_read_stage2_flash()
+{
+  osal_snv_read(SNV_ID_BJJA_FLASH_S2, sizeof(gFlash_data_s2), &gFlash_data_s2);
+  //PRINT_DATA("sing:%c%c%c\r\n",gFlash_data.sign[0],gFlash_data.sign[1],gFlash_data.sign[2]);
+  /*PRINT_DATA("OBDII MAC:%02x%02x%02x%02x%02x%02x\r\n",gFlash_data.obdii_mac[0],
+      gFlash_data.obdii_mac[1],gFlash_data.obdii_mac[2],
+      gFlash_data.obdii_mac[3],gFlash_data.obdii_mac[4],
+      gFlash_data.obdii_mac[5]);*/
+  PRINT_DATA("token:");
+  uint8_t i=0;
+  for(i=0;i<32;i++)
+  {
+    PRINT_DATA("%02x",gFlash_data_s2.nextToken[i]);
+  }
+  PRINT_DATA("\r\n");
+}
 void BJJA_LM_read_flash()
 {
   osal_snv_read(SNV_ID_BJJA_FLASH, sizeof(gFlash_data), &gFlash_data);
@@ -5581,6 +5606,9 @@ void BJJA_LM_load_default_setting()
     //write save data end in here
     //osal_snv_write(SNV_ID_BJJA_FLASH, BUF_OF_BJJA_SAVE_LEN, (uint8 *)data);
     osal_snv_write(SNV_ID_BJJA_FLASH, sizeof(gFlash_data),&gFlash_data);
+
+    sprintf(gFlash_data_s2.nextToken,"%s","4fG6jQ3xP8mH2kA9TzR5eS1nWbY0LqC");
+    BJJA_LM_write_stage2_flash();
   }
 }
 void BJJA_LM_read_SR_flash()
@@ -5667,6 +5695,7 @@ void BJJA_LM_init()
   gOBDII_dev.addr[4] = gFlash_data.obdii_mac[1];
   gOBDII_dev.addr[5] = gFlash_data.obdii_mac[0];
 
+  BJJA_LM_read_stage2_flash();
 
   //BJJA_LM_AES_init();//test ok
   
