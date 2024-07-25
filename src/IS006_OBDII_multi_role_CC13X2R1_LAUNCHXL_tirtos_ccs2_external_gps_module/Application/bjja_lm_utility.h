@@ -33,7 +33,7 @@ typedef struct
 
 typedef struct
 {
-  uint8_t nextToken[32];
+  uint8_t nextToken[64];
 } BJJM_LM_flash_data_s2;
 
 extern void BJJA_LM_Sub1G_init();

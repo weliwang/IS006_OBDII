@@ -367,6 +367,7 @@ static uint8_t mrInitPhy = INIT_PHY_1M;
   "\"commandId\": string,"              \
   "\"command\": string,"                \
   "\"uuid\":    string,"                \
+  "\"token\":    string,"                \
   "\"externalId\": string,"             \
   "\"password\": string,"               \
   "\"originalCommand\": string,"        \
@@ -5553,13 +5554,8 @@ void BJJA_LM_read_stage2_flash()
       gFlash_data.obdii_mac[1],gFlash_data.obdii_mac[2],
       gFlash_data.obdii_mac[3],gFlash_data.obdii_mac[4],
       gFlash_data.obdii_mac[5]);*/
-  PRINT_DATA("token:");
-  uint8_t i=0;
-  for(i=0;i<32;i++)
-  {
-    PRINT_DATA("%02x",gFlash_data_s2.nextToken[i]);
-  }
-  PRINT_DATA("\r\n");
+  PRINT_DATA("token:%s\r\n",gFlash_data_s2.nextToken);
+  
 }
 void BJJA_LM_read_flash()
 {
@@ -5607,7 +5603,7 @@ void BJJA_LM_load_default_setting()
     //osal_snv_write(SNV_ID_BJJA_FLASH, BUF_OF_BJJA_SAVE_LEN, (uint8 *)data);
     osal_snv_write(SNV_ID_BJJA_FLASH, sizeof(gFlash_data),&gFlash_data);
 
-    sprintf(gFlash_data_s2.nextToken,"%s","4fG6jQ3xP8mH2kA9TzR5eS1nWbY0LqC");
+    sprintf(gFlash_data_s2.nextToken,"%s","");
     BJJA_LM_write_stage2_flash();
   }
 }
@@ -7049,6 +7045,47 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
       BJJA_LM_json_set_token_data(&hObject_response,token_data,"\"payload\"");
 
       
+      BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      send_mqtt_cmd(jsonBuf);
+      return 0;
+    }
+    else if(strncmp(token_data,"SetToken",strlen("SetToken"))==0)
+    {
+      BJJA_LM_create_json(&hObject_response,&hTemplate_response,MQTT_PERIODIC_UPLOAD_SCHEMA,EXAMPLE_OF_RESPONSE);
+      BJJA_LM_json_set_token_data(&hObject_response,"SetTokenResponse","\"command\"");  
+
+      
+      my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"token\"");
+      if(my_ret)
+      {
+        PRINT_DATA("Received new token:%s\r\n",token_data);
+        BJJA_LM_json_set_token_data(&hObject_response,"Accepted","\"payload\"");      
+        //todo save to flash
+        strncpy(gFlash_data_s2.nextToken,token_data,strlen(token_data));
+        BJJA_LM_write_stage2_flash();
+        PRINT_DATA("change new token:%s\r\n",gFlash_data_s2.nextToken);
+      }
+      else
+      {
+        BJJA_LM_json_set_token_data(&hObject_response,"Rejected","\"payload\"");      
+      }    
+      BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
+      BJJA_LM_destory_json(&hTemplate,&hObject);
+      BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+      send_mqtt_cmd(jsonBuf);
+      return 0;
+    }
+    else if(strncmp(token_data,"RemoveToken",strlen("RemoveToken"))==0)
+    {
+      BJJA_LM_create_json(&hObject_response,&hTemplate_response,MQTT_PERIODIC_UPLOAD_SCHEMA,EXAMPLE_OF_RESPONSE);
+      BJJA_LM_json_set_token_data(&hObject_response,"RemoveTokenResponse","\"command\"");  
+
+      //weli todo remove token from flash.
+      memset(gFlash_data_s2.nextToken,0x00,sizeof(gFlash_data_s2.nextToken));
+      BJJA_LM_write_stage2_flash();
+      BJJA_LM_json_set_token_data(&hObject_response,"Accepted","\"payload\"");      
       BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
       BJJA_LM_destory_json(&hTemplate,&hObject);
       BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
