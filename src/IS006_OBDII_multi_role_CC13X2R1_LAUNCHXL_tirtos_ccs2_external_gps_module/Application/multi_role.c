@@ -384,10 +384,8 @@ static uint8_t mrInitPhy = INIT_PHY_1M;
 
 #define BLE_RESPONSE_SCHEMA             \
 "{"                                     \
-  "\"commandId\": string,"              \
   "\"command\": string,"                \
-  "\"externalId\": string,"             \
-  "\"payload\": string"                \
+  "\"payload\": string"                 \
 "}"
 
 
@@ -405,6 +403,7 @@ static uint8_t mrInitPhy = INIT_PHY_1M;
   "\"command\": string,"                \
   "\"originalCommand\": string,"        \
   "\"uuid\": string,"                   \
+  "\"token\":    string,"                \
   "\"externalId\": string"              \
 "}"
 #define RESPONSE_SCHEMA                 \
@@ -466,6 +465,11 @@ static uint8_t mrInitPhy = INIT_PHY_1M;
   "\"command\": \"OpenDoorReponse\","                   \
   "\"payload\": \"Rejected\","                           \
   "\"externalId\": \"externalId\""             \
+"}"
+#define EXAMPLE_OF_BLE_RESPONSE                             \
+"{"                                                     \
+  "\"command\": \"OpenDoorReponse\","                   \
+  "\"payload\": \"Rejected\""             \
 "}"
 #define EXAMPLE_AUTHORIZE_OF_RESPONSE                   \
 "{"                                                     \
@@ -595,6 +599,8 @@ void BJJA_LM_OpenDoor();
 void BJJA_LM_CloseDoorAndArm();
 void BJJA_LM_write_stage2_flash();
 void BJJA_LM_read_stage2_flash();
+uint8_t BJJA_LM_Send_Json_to_BLE(uint8_t cmd_type);
+void BJJA_LM_OpenDoorAndDisarm();
 #define OBD_MAX_CMD 16
 typedef struct
 {
@@ -2504,10 +2510,11 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
 
     case SIMPLEPROFILE_CHAR3:
       SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, charValue3);
-      if(BJJA_LM_Json_cmd_parsing_from_BLE(charValue3)==0)
+      if(BJJA_LM_Json_cmd_parsing_from_BLE(charValue3)==1)
       {
         PRINT_DATA("Json command by BLE\r\n");
       }
+#if 0
       else if(strncmp(charValue3,"AT+ARM",strlen("AT+ARM"))==0)
       {
         /*
@@ -2867,6 +2874,7 @@ static void multi_role_processCharValueChangeEvt(uint8_t paramId)
       {
         UartMessage2(charValue3,/*strlen(charValue3)*/gWriteUART_Length);  
       }
+#endif
       break;
 
     default:
@@ -6731,6 +6739,40 @@ void BJJA_LM_BLE_INCOMING()
     sprintf(mytmp,"FAIL+SRD");
     SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(mytmp) ,mytmp);
   }
+  else if(gCurrent_Notify_id==101)//OpenDoor OK
+  {
+    BJJA_LM_OpenDoor();
+    BJJA_LM_Send_Json_to_BLE(gCurrent_Notify_id);
+    //20240725 do opendoor ok
+    
+  }
+  else if(gCurrent_Notify_id==102)//OpenDoor NG
+  {
+    //weli 20240725 do opendoor ng
+    BJJA_LM_Send_Json_to_BLE(gCurrent_Notify_id);
+  }
+  else if(gCurrent_Notify_id==103)//OpenDoorAndDisarm  OK
+  {
+    //weli todo 20240725 do OpenDoorAndDisarm  ok
+    BJJA_LM_OpenDoorAndDisarm();
+    BJJA_LM_Send_Json_to_BLE(gCurrent_Notify_id);
+  }
+  else if(gCurrent_Notify_id==104)//OpenDoorAndDisarm  NG
+  {
+    //weli todo 20240725 do OpenDoorAndDisarm  ng
+    BJJA_LM_Send_Json_to_BLE(gCurrent_Notify_id);
+  }
+  else if(gCurrent_Notify_id==105)//OpenDoor OK
+  {
+    //weli todo 20240725 do opendoor ok
+    BJJA_LM_CloseDoor();
+    BJJA_LM_Send_Json_to_BLE(gCurrent_Notify_id);
+  }
+  else if(gCurrent_Notify_id==106)//CloseDoor NG
+  {
+    //weli todo 20240725 do CloseDoor ng
+    BJJA_LM_Send_Json_to_BLE(gCurrent_Notify_id);
+  }
   gCurrent_Notify_id=0;
 }
 /************************* THIS IS FOR UART2 END ***********************/
@@ -6858,6 +6900,7 @@ uint8_t BJJA_LM_create_json(Json_Handle *hLocalObject,Json_Handle *hLocalTemplat
     /* create a template from a buffer containing a template */
     retVal = Json_createTemplate(hLocalTemplate, json_schema,
             strlen(json_schema));
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
     if (retVal != 0) {
         PRINT_DATA("Error creating the JSON template\r\n");
         return 0;
@@ -6865,7 +6908,7 @@ uint8_t BJJA_LM_create_json(Json_Handle *hLocalObject,Json_Handle *hLocalTemplat
     else {
         PRINT_DATA("JSON template created\r\n");
     }
-
+    PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
     /* create a default-sized JSON object from the template */
     retVal = Json_createObject(hLocalObject, *hLocalTemplate, 0);
     if (retVal != 0) 
@@ -7006,7 +7049,11 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
   static char jsonBuf[1024];  /* max string to hold serialized JSON buffer */
   Json_Handle hTemplate;
   Json_Handle hObject;
-  BJJA_LM_create_json(&hObject,&hTemplate,MQTT_DOWNLINK_SCHEMA,buf);
+  if(BJJA_LM_create_json(&hObject,&hTemplate,MQTT_DOWNLINK_SCHEMA,buf)==0)
+  {
+    PRINT_DATA("%s-%d,bad json format,cancel parsing\r\n",__FUNCTION__,__LINE__);
+    return 0;
+  }
   char token_data[255]={0x00};
 
   Json_Handle hTemplate_response;
@@ -7060,12 +7107,12 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_MQTT_downlink_channel(char *buf)
       my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"token\"");
       if(my_ret)
       {
-        PRINT_DATA("Received new token:%s\r\n",token_data);
+        PRINT_DATA("Received new token:\r\n"/*,token_data*/);
         BJJA_LM_json_set_token_data(&hObject_response,"Accepted","\"payload\"");      
         //todo save to flash
         strncpy(gFlash_data_s2.nextToken,token_data,strlen(token_data));
         BJJA_LM_write_stage2_flash();
-        PRINT_DATA("change new token:%s\r\n",gFlash_data_s2.nextToken);
+        PRINT_DATA("change new token\r\n"/*,gFlash_data_s2.nextToken*/);
       }
       else
       {
@@ -7494,7 +7541,15 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_BLE(char *buf)
   static char jsonBuf[1024];  /* max string to hold serialized JSON buffer */
   Json_Handle hTemplate;
   Json_Handle hObject;
-  BJJA_LM_create_json(&hObject,&hTemplate,AUTHORIZE_SCHEMA,buf);
+  PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  if(BJJA_LM_create_json(&hObject,&hTemplate,AUTHORIZE_SCHEMA,buf)==0)
+  {
+    BJJA_LM_destory_json(&hTemplate,&hObject);
+    PRINT_DATA("%s-%d,bad json format,cancel parsing\r\n",__FUNCTION__,__LINE__);
+    return 0;
+  }
+
+  PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
   char token_data[255]={0x00};
 #if 0
   Json_Handle hTemplate_authorize;
@@ -7533,13 +7588,68 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_BLE(char *buf)
   }
 #else
   uint8_t my_ret = BJJA_LM_json_get_token_data(&hObject,token_data,"\"command\"");
+  //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
   if(my_ret && strncmp(token_data,"Authorize",strlen("Authorize"))==0)
   {
+    //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
     BJJA_LM_json_set_token_data(&hObject,Util_convertBdAddr2Str(connList[0].addr),"\"uuid\"");  
+    //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
     BJJA_LM_json_build(&hObject,jsonBuf,jsonBufSize);
+    //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
     BJJA_LM_destory_json(&hTemplate,&hObject);
+    //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
     send_mqtt_cmd(jsonBuf);
+    //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
     return 0;
+  }
+  else if(my_ret && (strncmp(token_data,"OpenDoor",strlen("OpenDoor"))==0
+    ||strncmp(token_data,"OpenDoorAndDisarm",strlen("OpenDoorAndDisarm"))==0
+    ||strncmp(token_data,"CloseDoor",strlen("CloseDoor"))==0
+    ))
+  {
+    uint8_t myCmd_type=0;
+    if(strncmp(token_data,"OpenDoor",strlen("OpenDoor"))==0)
+    {
+      myCmd_type=0;
+    }
+    else if(strncmp(token_data,"OpenDoorAndDisarm",strlen("OpenDoorAndDisarm"))==0)
+    {
+      myCmd_type=1;
+    }
+    else if(strncmp(token_data,"CloseDoor",strlen("CloseDoor"))==0)
+    {
+      myCmd_type=2;
+    }
+    //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    uint8_t myTmpToken[96]={0x00};
+    my_ret = BJJA_LM_json_get_token_data(&hObject,myTmpToken,"\"token\"");
+    //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+    if(my_ret && 
+      strlen(gFlash_data_s2.nextToken)>4 &&
+      strncmp(myTmpToken,gFlash_data_s2.nextToken,strlen(gFlash_data_s2.nextToken))==0
+      )
+    {
+      //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+      if(myCmd_type==0)
+        gCurrent_Notify_id=101;
+      else if(myCmd_type==1)
+        gCurrent_Notify_id=103;
+      else if(myCmd_type==2)
+        gCurrent_Notify_id=105;
+    } 
+    else
+    {
+      //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+      if(myCmd_type==0)
+        gCurrent_Notify_id=102;
+      else if(myCmd_type==1)
+        gCurrent_Notify_id=104;
+      else if(myCmd_type==2)
+        gCurrent_Notify_id=106;
+    }
+    BJJA_LM_destory_json(&hTemplate,&hObject);
+    multi_role_enqueueMsg(BJJA_LM_Notify_DATA_EVT,NULL);
+    //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
   }
 #endif
   return 1;
@@ -7583,5 +7693,52 @@ uint8_t BJJA_LM_Json_cmd_parsing_from_BLE(char *buf)
   }
 #endif
   
+}
+uint8_t BJJA_LM_Send_Json_to_BLE(uint8_t cmd_type)
+{
+  uint16_t jsonBufSize=254;
+  char jsonBuf[255];  /* max string to hold serialized JSON buffer */
+  Json_Handle hTemplate_response;
+  Json_Handle hObject_response;  
+  //PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  //PRINT_DATA("[weli]json schema:\r\n%s\r\n",BLE_RESPONSE_SCHEMA);
+  //PRINT_DATA("[weli]json sample:\r\n%s\r\n",EXAMPLE_OF_BLE_RESPONSE);
+  BJJA_LM_create_json(&hObject_response,&hTemplate_response,BLE_RESPONSE_SCHEMA,EXAMPLE_OF_BLE_RESPONSE);
+  PRINT_DATA("%s-%d\r\n",__FUNCTION__,__LINE__);
+  if(cmd_type==101)
+  {
+    BJJA_LM_json_set_token_data(&hObject_response,"OpenDoorResponse","\"command\"");  
+    BJJA_LM_json_set_token_data(&hObject_response,"Accepted","\"payload\"");    
+  }
+  else if(cmd_type==102)
+  {
+    BJJA_LM_json_set_token_data(&hObject_response,"OpenDoorResponse","\"command\"");  
+    BJJA_LM_json_set_token_data(&hObject_response,"Rejected","\"payload\"");    
+  }
+  else if(cmd_type==103)
+  {
+    BJJA_LM_json_set_token_data(&hObject_response,"OpenDoorAndDisarmResponse","\"command\"");  
+    BJJA_LM_json_set_token_data(&hObject_response,"Accepted","\"payload\"");    
+  }
+  else if(cmd_type==104)
+  {
+    BJJA_LM_json_set_token_data(&hObject_response,"OpenDoorAndDisarmResponse","\"command\"");  
+    BJJA_LM_json_set_token_data(&hObject_response,"Rejected","\"payload\"");    
+  }
+  else if(cmd_type==105)
+  {
+    BJJA_LM_json_set_token_data(&hObject_response,"CloseDoorResponse","\"command\"");  
+    BJJA_LM_json_set_token_data(&hObject_response,"Accepted","\"payload\"");    
+  }
+  else if(cmd_type==106)
+  {
+    BJJA_LM_json_set_token_data(&hObject_response,"CloseDoorResponse","\"command\"");  
+    BJJA_LM_json_set_token_data(&hObject_response,"Rejected","\"payload\"");    
+  }
+  
+  BJJA_LM_json_build(&hObject_response,jsonBuf,jsonBufSize);
+  BJJA_LM_destory_json(&hTemplate_response,&hObject_response);
+  SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4,strlen(jsonBuf) ,jsonBuf);
+  return 1;
 }
 /**************add by weli begin for json function***********************/
