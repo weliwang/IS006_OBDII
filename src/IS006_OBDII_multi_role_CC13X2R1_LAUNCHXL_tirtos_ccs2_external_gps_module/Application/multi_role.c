@@ -88,7 +88,7 @@
  * Add by weli end
  */
 
-#define FW_VERSION "V1.3.5"
+#define FW_VERSION "V1.3.6"
 
 /*********************************************************************
  * MACROS
@@ -349,6 +349,44 @@ static uint8 rpa[B_ADDR_LEN] = {0};
 
 // Initiating PHY
 static uint8_t mrInitPhy = INIT_PHY_1M;
+
+
+
+
+uint8_t BJJA_LM_advData[] =
+{
+  18,
+  GAP_ADTYPE_LOCAL_NAME_COMPLETE,
+  'A',
+  'V',
+  'I',
+  'S',
+  '_',
+  '0',
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '9',
+  'A',
+  'B',
+
+  0x02,
+  GAP_ADTYPE_FLAGS,
+  GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
+
+  0x03,
+  GAP_ADTYPE_16BIT_MORE,
+  // More 16-bit - UUID 0
+  LO_UINT16(0xfff0),
+  HI_UINT16(0xfff0),
+
+};
+
 
 
 /**************add by weli begin for json function***********************/
@@ -677,6 +715,7 @@ uint8_t gDoor_State=0x00;
 uint8_t g_previous_door_state=0;
 static uint8_t gFirst_boot=0x01;
 static uint8_t gSuperUserMode=0x00;
+
 uint8_t gmyi=0;
 void PRINT_DATA(char *ptr2, ...)
 {
@@ -1015,6 +1054,8 @@ static void multi_role_init(void)
   // Set the Device Name characteristic in the GAP GATT Service
   // For more information, see the section in the User's Guide:
   // http://software-dl.ti.com/lprf/ble5stack-latest/
+  //BJJA_LM_get_device_name();
+  //PRINT_DATA("weli:%s,%d\r\n",__FUNCTION__,__LINE__);
   GGS_SetParameter(GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, (void *)attDeviceName);
 
   // Configure GAP
@@ -1722,9 +1763,25 @@ static void multi_role_advertInit(void)
   GapAdv_create(&multi_role_advCB, &advParams1,
                 &advHandle);
 
+  //BJJA_LM_get_device_name();
+
+  uint8_t my_devicename[17]={0x00};
+  GetMacAddress(gMac);
+  sprintf(my_devicename,"AVIS_%02x%02x%02x%02x%02x%02x",gMac[0],gMac[1],gMac[2],gMac[3],gMac[4],gMac[5]);
+  
+  uint8_t myi=0;
+  for(myi=0;myi<17;myi++)
+  {
+    BJJA_LM_advData[2+myi] = my_devicename[myi];
+  }
+  PRINT_DATA("Adv name:%s\r\n",my_devicename);
+
+  GGS_SetParameter(GGS_DEVICE_NAME_ATT, sizeof(my_devicename), (void *)my_devicename);
   // Load advertising data for set #1 that is statically allocated by the app
   GapAdv_loadByHandle(advHandle, GAP_ADV_DATA_TYPE_ADV,
-                      sizeof(advData1), advData1);
+                      sizeof(BJJA_LM_advData), BJJA_LM_advData);
+  //GapAdv_loadByHandle(advHandle, GAP_ADV_DATA_TYPE_ADV,
+  //                    sizeof(advData1), advData1);
 
   // Load scan response data for set #1 that is statically allocated by the app
   //GapAdv_loadByHandle(advHandle, GAP_ADV_DATA_TYPE_SCAN_RSP,
@@ -5939,8 +5996,8 @@ uint8_t check_ble()
   //  PRINT_DATA("%2x",gFlash_data.sn[i]);
   //PRINT_DATA("\r\n");
   GetMacAddress(gMac);
-  gvalid=1;
-  return 1;
+  //gvalid=1;
+  //return 1;
 
   //http://testprotect.com/appendix/AEScalc
   //cf21513c0d0a1203251220030144ff01//key
